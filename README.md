@@ -1,6 +1,7 @@
 Editor de video
 
 Especificações
+- utilizar pyside6
 - criar um novo aplicativo executavel que irá rodar os vídeos
 - o aplicativo executavel será salva dentro de uma pasta onde terá outras quatros pastas, uma pasta que irá incluir os videos que serão recortados, outra que irá salvar músicas ou audios, outra que irá salvar temporariamente os videos recortados para edição, e outro que irá salvar os recortes dos videos recortados, e para cada video recortado será criada uma nova pasta contendo os videos que foram recortados
 

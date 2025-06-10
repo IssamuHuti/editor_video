@@ -1,12 +1,20 @@
 import sys
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QPushButton, QMessageBox, QVBoxLayout, QHBoxLayout, QLabel
+    QApplication, QWidget, QPushButton, QMessageBox, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFormLayout
 )
 
 # Definir a ação do botão
 def ao_clicar():
     QMessageBox.information(janela, "Ação", "Você clicou no botão!") 
     # informar em qual janela será exibido, titulo da mensagem, texto da mensagem
+
+# Função ao clicar no botão
+def enviar_dados():
+    nome = campo_nome.text()
+    idade = campo_idade.text()
+    
+    # Mostra os dados com uma mensagem
+    QMessageBox.information(janela, "Dados enviados", f"Nome: {nome}\nEmail: {idade}")
 
 # Cria a aplicação
 # hospeda toda a aplicação do programa
@@ -15,7 +23,7 @@ app = QApplication(sys.argv)
 janela = QWidget() # Cria uma janela simples
 # QWidget é a base visual de todo o projeto
 janela.setWindowTitle("Janela de teste")
-janela.resize(300, 200)  # Largura x Altura
+janela.resize(300, 300)  # Largura x Altura
 
 # Criar o layout vertical e adicionar os botões
 # Layout vertical principal
@@ -39,15 +47,30 @@ layout_botoes.addWidget(botao2)
 # Adiciona o layout horizontal dentro do vertical
 layout_principal.addLayout(layout_botoes)
 
-# Botão final centralizado
-botao_final = QPushButton("Confirmar")
-layout_principal.addWidget(botao_final)
+# Campos de entrada
+campo_nome = QLineEdit()
+campo_idade = QLineEdit()
 
-# Aplicar o layout à janela/aplicativo
-janela.setLayout(layout_principal)
+# Layout de formulário
+formulario = QFormLayout()
+formulario.addRow("Nome:", campo_nome)
+formulario.addRow("Idade:", campo_idade)
+
+# Botão final centralizado
+layout_principal.addLayout(formulario)
+
+botao_enviar = QPushButton("Enviar")
+layout_principal.addWidget(botao_enviar)
 
 botao1.clicked.connect(ao_clicar)  # Conectar o clique à função
 botao2.clicked.connect(ao_clicar)  # Conectar o clique à função
+botao_enviar.clicked.connect(enviar_dados)
+
+# Adiciona o botão ao final do formulário
+formulario.addRow(botao_enviar)
+
+# Aplicar o layout à janela/aplicativo
+janela.setLayout(layout_principal)
 
 janela.show()  # Exibe a janela
 # Executa o loop da aplicação

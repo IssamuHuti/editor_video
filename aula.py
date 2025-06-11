@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QPushButton, QMessageBox, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFormLayout
+    QApplication, QWidget, QPushButton, QMessageBox, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFormLayout, QStackedLayout
 )
 
 # Definir a ação do botão
@@ -16,6 +16,14 @@ def enviar_dados():
     # Mostra os dados com uma mensagem
     QMessageBox.information(janela, "Dados enviados", f"Nome: {nome}\nEmail: {idade}")
 
+# Funções para alternar entre as telas
+def mostrar_tela_cadastro():
+    stack_layout.setCurrentIndex(1) # .setCurrentIndex = Troca para a tela de índice
+
+def mostrar_tela_login():
+    stack_layout.setCurrentIndex(0) # .setCurrentIndex = Troca para a tela de índice
+
+
 # Cria a aplicação
 # hospeda toda a aplicação do programa
 app = QApplication(sys.argv)
@@ -25,13 +33,37 @@ janela = QWidget() # Cria uma janela simples
 janela.setWindowTitle("Janela de teste")
 janela.resize(300, 300)  # Largura x Altura
 
+# ===== Tela de Login =====
+tela_login = QWidget()
+layout_login = QVBoxLayout()
+
+form_login = QFormLayout()
+campo_usuario = QLineEdit()
+campo_senha = QLineEdit()
+campo_senha.setEchoMode(QLineEdit.Password)
+form_login.addRow("Usuário:", campo_usuario)
+form_login.addRow("Senha:", campo_senha)
+
+botao_ir_cadastro = QPushButton("Ir para Cadastro")
+botao_entrar = QPushButton("Entrar")
+
+layout_login.addLayout(form_login)
+layout_login.addWidget(botao_entrar)
+layout_login.addWidget(botao_ir_cadastro)
+
+tela_login.setLayout(layout_login)
+
+
+# ===== Tela de Cadastro =====
+
 # Criar o layout vertical e adicionar os botões
 # Layout vertical principal
-layout_principal = QVBoxLayout() # cria um campo onde possibilita o desenvolvimento visual do aplicativo
+tela_cadastro = QWidget()
+layout_cadastro = QVBoxLayout() # cria um campo onde possibilita o desenvolvimento visual do aplicativo
 
 # Adiciona um título dentro do layout
 titulo = QLabel("Escolha uma opção:")
-layout_principal.addWidget(titulo)
+layout_cadastro.addWidget(titulo)
 
 # Layout horizontal com dois botões
 layout_botoes = QHBoxLayout()
@@ -45,22 +77,32 @@ layout_botoes.addWidget(botao1) # adiciona um novo componente visual dentro do e
 layout_botoes.addWidget(botao2)
 
 # Adiciona o layout horizontal dentro do vertical
-layout_principal.addLayout(layout_botoes)
+layout_cadastro.addLayout(layout_botoes)
 
 # Campos de entrada
-campo_nome = QLineEdit()
-campo_idade = QLineEdit()
-
 # Layout de formulário
 formulario = QFormLayout()
+
+campo_nome = QLineEdit()
+campo_idade = QLineEdit()
+campo_senha = QLineEdit()
+campo_senha.setEchoMode(QLineEdit.Password) #.setEchoMode = Oculta senha no campo de texto
+
 formulario.addRow("Nome:", campo_nome)
 formulario.addRow("Idade:", campo_idade)
+formulario.addRow("Senha:", campo_senha)
+
+botao_voltar_login = QPushButton("Voltar para Login")
+botao_cadastrar = QPushButton("Cadastrar")
 
 # Botão final centralizado
-layout_principal.addLayout(formulario)
+layout_cadastro.addLayout(formulario)
 
 botao_enviar = QPushButton("Enviar")
-layout_principal.addWidget(botao_enviar)
+layout_cadastro.addWidget(botao_enviar)
+
+layout_cadastro.addWidget(botao_cadastrar)
+layout_cadastro.addWidget(botao_voltar_login)
 
 botao1.clicked.connect(ao_clicar)  # Conectar o clique à função
 botao2.clicked.connect(ao_clicar)  # Conectar o clique à função
@@ -70,8 +112,17 @@ botao_enviar.clicked.connect(enviar_dados)
 formulario.addRow(botao_enviar)
 
 # Aplicar o layout à janela/aplicativo
-janela.setLayout(layout_principal)
+tela_cadastro.setLayout(layout_cadastro)
 
+# ===== Layout que troca telas =====
+stack_layout = QStackedLayout() # Empilha várias telas/layouts e mostra só uma
+stack_layout.addWidget(tela_login)     # índice 0
+stack_layout.addWidget(tela_cadastro)  # índice 1
+
+botao_ir_cadastro.clicked.connect(mostrar_tela_cadastro)
+botao_voltar_login.clicked.connect(mostrar_tela_login)
+
+janela.setLayout(stack_layout)
 janela.show()  # Exibe a janela
 # Executa o loop da aplicação
 app.exec()

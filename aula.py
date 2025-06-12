@@ -44,12 +44,10 @@ campo_senha.setEchoMode(QLineEdit.Password)
 form_login.addRow("Usuário:", campo_usuario)
 form_login.addRow("Senha:", campo_senha)
 
-botao_ir_cadastro = QPushButton("Ir para Cadastro")
 botao_entrar = QPushButton("Entrar")
 
 layout_login.addLayout(form_login)
 layout_login.addWidget(botao_entrar)
-layout_login.addWidget(botao_ir_cadastro)
 
 tela_login.setLayout(layout_login)
 
@@ -93,7 +91,6 @@ formulario.addRow("Idade:", campo_idade)
 formulario.addRow("Senha:", campo_senha)
 
 botao_voltar_login = QPushButton("Voltar para Login")
-botao_cadastrar = QPushButton("Cadastrar")
 
 # Botão final centralizado
 layout_cadastro.addLayout(formulario)
@@ -101,7 +98,6 @@ layout_cadastro.addLayout(formulario)
 botao_enviar = QPushButton("Enviar")
 layout_cadastro.addWidget(botao_enviar)
 
-layout_cadastro.addWidget(botao_cadastrar)
 layout_cadastro.addWidget(botao_voltar_login)
 
 botao1.clicked.connect(ao_clicar)  # Conectar o clique à função
@@ -119,7 +115,7 @@ stack_layout = QStackedLayout() # Empilha várias telas/layouts e mostra só uma
 stack_layout.addWidget(tela_login)     # índice 0
 stack_layout.addWidget(tela_cadastro)  # índice 1
 
-botao_ir_cadastro.clicked.connect(mostrar_tela_cadastro)
+botao_entrar.clicked.connect(mostrar_tela_cadastro)
 botao_voltar_login.clicked.connect(mostrar_tela_login)
 
 janela.setLayout(stack_layout)

@@ -2,25 +2,77 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QWidget, QPushButton, QMessageBox, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFormLayout, QStackedLayout
 )
+from PySide6.QtCore import Qt
 
 def enviar_dados():
-    nome = campo_nome.text()
-    idade = campo_idade.text()
-    profissao = campo_profissao.text()
+    nome = campoNome.text()
+    idade = campoIdade.text()
+    profissao = campoProfissao.text()
     
     QMessageBox.information(janela, "Dados enviados", f"Nome     : {nome}\nIdade     : {idade}\nProfissao: {profissao}")
 
-def mostrarTelaPrincipal():
-    stack_layout.setCurrentIndex(1) # seleciona o widget informado no indice selecionado
+def verificacao():
+    usuario = campoUsuario.text().strip()
+    senha = campoSenha.text().strip()
+    validarUsuario = False
+    validarSenha = False
 
-def mostrarTelaLogin():
-    stack_layout.setCurrentIndex(0) # seleciona o widget informado no indice selecionado
+    if usuario in usuarios:
+        validarUsuario = True
+    else:
+        QMessageBox.warning(janela, "Atenção", "Usuario inexistente!")
+    
+    if senha == '1234':
+        validarSenha = True
+    else:
+        QMessageBox.warning(janela, "Atenção", "Senha incorreta!")
+
+    if validarUsuario == True and validarSenha == True:
+        stack_layout.setCurrentIndex(1)
+
+def alternar_tema():
+    global tema_escuro
+    tema_escuro = not tema_escuro
+    if tema_escuro:
+        app.setStyleSheet(ESTILO_ESCURO)
+        botaoTema.setText("☀️ Modo Claro")
+    else:
+        app.setStyleSheet(ESTILO_CLARO)
+        botaoTema.setText("🌙 Modo Escuro")
+
+ESTILO_CLARO = """
+    QWidget {
+        background-color: #ffffff;
+        color: #000000;
+    }
+    QPushButton {
+        background-color: #e0e0e0;
+        border: none;
+        padding: 6px;
+    }
+"""
+ESTILO_ESCURO = """
+    QWidget {
+        background-color: #2e2e2e;
+        color: #ffffff;
+    }
+    QPushButton {
+        background-color: #444;
+        color: white;
+        border: none;
+        padding: 6px;
+    }
+"""
+
+usuarios = ['lucas', 'joao', 'carlos']
 
 app = QApplication(sys.argv)
 
 janela = QWidget()
 janela.setWindowTitle("Janela de teste")
 janela.resize(400, 250)
+
+tema_escuro = False
 
 # ===== Tela Login =====
 telaLogin = QWidget()
@@ -48,27 +100,31 @@ layoutColEsquerda = QVBoxLayout()
 botao1 = QPushButton('Opção 1')
 botao2 = QPushButton('Opção 2')
 botao3 = QPushButton('Opção 3')
+botaoTema = QPushButton("🌙 Modo Escuro")
 botaoLogin = QPushButton('Voltar Login')
 layoutColEsquerda.addWidget(botao1)
 layoutColEsquerda.addWidget(botao2)
 layoutColEsquerda.addWidget(botao3)
+layoutColEsquerda.addWidget(botaoTema)
 layoutColEsquerda.addWidget(botaoLogin)
+
+botaoTema.clicked.connect(alternar_tema)
 
 layoutPrincipal.addLayout(layoutColEsquerda)
 
-
-layoutColDireita = QVBoxLayout()
 titulo = QLabel('Preencha as seguintes informações')
+titulo.setAlignment(Qt.AlignCenter)
+layoutColDireita = QVBoxLayout()
 layoutColDireita.addWidget(titulo)
 
 formulario = QFormLayout()
-campo_nome = QLineEdit()
-campo_idade = QLineEdit()
-campo_profissao = QLineEdit()
+campoNome = QLineEdit()
+campoIdade = QLineEdit()
+campoProfissao = QLineEdit()
 
-formulario.addRow('Nome     :', campo_nome)
-formulario.addRow('Idade    :', campo_idade)
-formulario.addRow('Profissao:', campo_profissao)
+formulario.addRow('Nome     :', campoNome)
+formulario.addRow('Idade    :', campoIdade)
+formulario.addRow('Profissao:', campoProfissao)
 layoutColDireita.addLayout(formulario)
 
 botaoEnviar = QPushButton('Enviar')
@@ -83,16 +139,17 @@ telaPrincipal.setLayout(layoutPrincipal)
 
 
 # ===== Troca de Tela =====
-stack_layout = QStackedLayout() # cria o layout que vai conter várias telas (widgets)
-stack_layout.addWidget(telaLogin) # adiciona o QWidget informado na variável 'telaLogin' # indice (0)
-stack_layout.addWidget(telaPrincipal) # adiciona o QWidget informado na variável 'telaPrincipal' # indice (1)
-# Cada tela (geralmente um QWidget) é adicionada como uma “aba oculta”.
-# como o widget 'telaLogin' está indicado no indice (0), assim que o aplicativo for inicializado, vai abrir essa widget
+stack_layout = QStackedLayout() 
+stack_layout.addWidget(telaLogin)
+stack_layout.addWidget(telaPrincipal)
 
-botaoEntrar.clicked.connect(mostrarTelaPrincipal) # altera a indice de acordo com o indice informado na função
-botaoLogin.clicked.connect(mostrarTelaLogin) # altera a indice de acordo com o indice informado na função
+botaoEntrar.clicked.connect(verificacao)
+botaoLogin.clicked.connect(lambda: stack_layout.setCurrentIndex(0))
 
-janela.setLayout(stack_layout) # seleciona a variável que está contendo as demais widgets
+janela.setLayout(stack_layout)
+
+app.setStyleSheet(ESTILO_CLARO) 
+
 janela.show()
 
 app.exec()

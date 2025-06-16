@@ -4,41 +4,121 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-def enviar_dados():
-    nome = campoNome.text()
-    idade = campoIdade.text()
-    profissao = campoProfissao.text()
-    
-    QMessageBox.information(janela, "Dados enviados", f"Nome     : {nome}\nIdade     : {idade}\nProfissao: {profissao}")
+class JanelaPrincipal(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Janela de Login")
+        self.resize(400, 250)
 
-def verificacao():
-    usuario = campoUsuario.text().strip()
-    senha = campoSenha.text().strip()
-    validarUsuario = False
-    validarSenha = False
+        layoutPrincipal = QHBoxLayout()
 
-    if usuario in usuarios:
-        validarUsuario = True
-    else:
-        QMessageBox.warning(janela, "Atenção", "Usuario inexistente!")
-    
-    if senha == '1234':
-        validarSenha = True
-    else:
-        QMessageBox.warning(janela, "Atenção", "Senha incorreta!")
+        layoutColEsquerda = QVBoxLayout()
+        botao1 = QPushButton('Opção 1')
+        botao2 = QPushButton('Opção 2')
+        botao3 = QPushButton('Opção 3')
+        self.botaoTema = QPushButton("🌙 Modo Escuro")
+        botaoLogin = QPushButton('Voltar Login')
+        layoutColEsquerda.addWidget(botao1)
+        layoutColEsquerda.addWidget(botao2)
+        layoutColEsquerda.addWidget(botao3)
+        layoutColEsquerda.addWidget(self.botaoTema)
+        layoutColEsquerda.addWidget(botaoLogin)
 
-    if validarUsuario == True and validarSenha == True:
+        self.botaoTema.clicked.connect(self.alternar_tema)
+        botaoLogin.clicked.connect(lambda: stack_layout.setCurrentIndex(0))
+
+        layoutPrincipal.addLayout(layoutColEsquerda)
+
+        titulo = QLabel('Preencha as seguintes informações')
+        titulo.setAlignment(Qt.AlignCenter)
+        layoutColDireita = QVBoxLayout()
+        layoutColDireita.addWidget(titulo)
+
+        formulario = QFormLayout()
+        self.campoNome = QLineEdit()
+        self.campoIdade = QLineEdit()
+        self.campoProfissao = QLineEdit()
+
+        formulario.addRow('Nome     :', self.campoNome)
+        formulario.addRow('Idade    :', self.campoIdade)
+        formulario.addRow('Profissao:', self.campoProfissao)
+        layoutColDireita.addLayout(formulario)
+
+        botaoEnviar = QPushButton('Enviar')
+        botaoEnviar.clicked.connect(self.enviar_dados)
+        layoutColDireita.addWidget(botaoEnviar)
+
+        layoutPrincipal.addLayout(layoutColDireita)
+        self.setLayout(layoutPrincipal)
+
+    def enviar_dados(self):
+        nome = self.campoNome.text()
+        idade = self.campoIdade.text()
+        profissao = self.campoProfissao.text()
+        
+        QMessageBox.information(self, "Dados enviados", f"Nome     : {nome}\nIdade     : {idade}\nProfissao: {profissao}")
+
+    def alternar_tema(self):
+        global tema_escuro
+        tema_escuro = not tema_escuro
+        if tema_escuro:
+            app.setStyleSheet(ESTILO_ESCURO)
+            self.botaoTema.setText("☀️ Modo Claro")
+        else:
+            app.setStyleSheet(ESTILO_CLARO)
+            self.botaoTema.setText("🌙 Modo Escuro")
+
+
+class JanelaLogin(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Janela de Login")
+        self.resize(400, 250)
+
+        layout = QVBoxLayout()
+        formLogin = QFormLayout()
+
+        self.campoUsuario = QLineEdit()
+        self.campoSenha = QLineEdit()
+        self.campoSenha.setEchoMode(QLineEdit.Password)
+        formLogin.addRow("Usuário:", self.campoUsuario)
+        formLogin.addRow("Senha:", self.campoSenha)
+
+        self.botaoEntrar = QPushButton("Entrar")
+        self.botaoEntrar.clicked.connect(self.verificacao)
+
+        layout.addLayout(formLogin)
+        layout.addWidget(self.botaoEntrar)
+
+        self.setLayout(layout)
+
+    def verificacao(self):
+        usuario = self.campoUsuario.text().strip()
+        senha = self.campoSenha.text().strip()
+
+        if usuario not in usuarios:
+            QMessageBox.warning(self, "Atenção", "Usuario inexistente!")
+            return
+        
+        if senha != '1234':
+            QMessageBox.warning(self, "Atenção", "Senha incorreta!")
+            return
+
         stack_layout.setCurrentIndex(1)
 
-def alternar_tema():
-    global tema_escuro
-    tema_escuro = not tema_escuro
-    if tema_escuro:
-        app.setStyleSheet(ESTILO_ESCURO)
-        botaoTema.setText("☀️ Modo Claro")
-    else:
-        app.setStyleSheet(ESTILO_CLARO)
-        botaoTema.setText("🌙 Modo Escuro")
+
+class JanelaBoasVindas(QWidget):
+    def __init__(self, nome):
+        super().__init__()
+        self.setWindowTitle("Boas-vindas")
+        self.resize(250, 100)
+
+        layoutBoasVindas = QVBoxLayout()
+        mensagem = QLabel(f"Olá, {nome}! Bem-vindo ao aplicativo.")
+        layoutBoasVindas.addWidget(mensagem)
+
+        self.setLayout(layoutBoasVindas)
+
 
 ESTILO_CLARO = """
     QWidget {
@@ -65,91 +145,22 @@ ESTILO_ESCURO = """
 """
 
 usuarios = ['lucas', 'joao', 'carlos']
-
-app = QApplication(sys.argv)
-
-janela = QWidget()
-janela.setWindowTitle("Janela de teste")
-janela.resize(400, 250)
-
 tema_escuro = False
 
-# ===== Tela Login =====
-telaLogin = QWidget()
-layoutLogin = QVBoxLayout()
-
-formLogin = QFormLayout()
-campoUsuario = QLineEdit()
-campoSenha = QLineEdit()
-campoSenha.setEchoMode(QLineEdit.Password)
-formLogin.addRow("Usuário:", campoUsuario)
-formLogin.addRow("Senha:", campoSenha)
-
-botaoEntrar = QPushButton("Entrar")
-
-layoutLogin.addLayout(formLogin)
-layoutLogin.addWidget(botaoEntrar)
-
-telaLogin.setLayout(layoutLogin)
-
-# ===== Tela Principal =====
-telaPrincipal = QWidget()
-layoutPrincipal = QHBoxLayout()
-
-layoutColEsquerda = QVBoxLayout()
-botao1 = QPushButton('Opção 1')
-botao2 = QPushButton('Opção 2')
-botao3 = QPushButton('Opção 3')
-botaoTema = QPushButton("🌙 Modo Escuro")
-botaoLogin = QPushButton('Voltar Login')
-layoutColEsquerda.addWidget(botao1)
-layoutColEsquerda.addWidget(botao2)
-layoutColEsquerda.addWidget(botao3)
-layoutColEsquerda.addWidget(botaoTema)
-layoutColEsquerda.addWidget(botaoLogin)
-
-botaoTema.clicked.connect(alternar_tema)
-
-layoutPrincipal.addLayout(layoutColEsquerda)
-
-titulo = QLabel('Preencha as seguintes informações')
-titulo.setAlignment(Qt.AlignCenter)
-layoutColDireita = QVBoxLayout()
-layoutColDireita.addWidget(titulo)
-
-formulario = QFormLayout()
-campoNome = QLineEdit()
-campoIdade = QLineEdit()
-campoProfissao = QLineEdit()
-
-formulario.addRow('Nome     :', campoNome)
-formulario.addRow('Idade    :', campoIdade)
-formulario.addRow('Profissao:', campoProfissao)
-layoutColDireita.addLayout(formulario)
-
-botaoEnviar = QPushButton('Enviar')
-layoutColDireita.addWidget(botaoEnviar)
-
-layoutPrincipal.addLayout(layoutColDireita)
-
-botaoEnviar.clicked.connect(enviar_dados)
-formulario.addRow(botaoEnviar)
-
-telaPrincipal.setLayout(layoutPrincipal)
-
+app = QApplication(sys.argv)
+app.setStyleSheet(ESTILO_CLARO)
 
 # ===== Troca de Tela =====
 stack_layout = QStackedLayout() 
-stack_layout.addWidget(telaLogin)
-stack_layout.addWidget(telaPrincipal)
+loginWidget = JanelaLogin()
+principalWidget = JanelaPrincipal()
 
-botaoEntrar.clicked.connect(verificacao)
-botaoLogin.clicked.connect(lambda: stack_layout.setCurrentIndex(0))
+stack_layout.addWidget(loginWidget)
+stack_layout.addWidget(principalWidget)
 
-janela.setLayout(stack_layout)
+stacked_widget = QWidget()
+stacked_widget.setLayout(stack_layout)
 
-app.setStyleSheet(ESTILO_CLARO) 
-
-janela.show()
+stacked_widget.show()
 
 app.exec()

@@ -3,7 +3,7 @@ import os
 import datetime
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog,
-    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider
+    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget
 )
 from PySide6.QtCore import QUrl, Qt, QTime, QTimer
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -39,7 +39,8 @@ class TelaCarregarRecortar(QWidget):
         botaoSalvar = QPushButton('Salvar')
 
         botaoCarregar.clicked.connect(self.carregarVideo)
-        self.player.positionChanged.connect(self.atualizar_slider)
+        self.player.positionChanged.connect(self.atualizarSlider)
+        self.player.positionChanged.connect(self.atualizarTemporalizador)
         self.slider.sliderMoved.connect(self.player.setPosition)
 
         layoutBotoes.addWidget(botaoCarregar)
@@ -47,17 +48,23 @@ class TelaCarregarRecortar(QWidget):
         layoutBotoes.addWidget(botaoEditar)
         layoutBotoes.addWidget(botaoSalvar)
 
+        layoutTempo = QHBoxLayout()
+        self.temporizador = QLabel("00:00:00 / 00:00:00")
+        layoutTempo.addWidget(self.temporizador)
+        layoutTempo.addWidget(self.slider)
+
         layoutCarregarVideo.addWidget(self.videoWidget)
-        layoutCarregarVideo.addWidget(self.slider)
+        layoutCarregarVideo.addLayout(layoutTempo)
         layoutCarregarVideo.addLayout(layoutBotoes)
 
 
         layoutVideosRecortados = QVBoxLayout()
 
-        recortes = QLabel('Videos recortados')
-        recortes.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
-        recortes.setAlignment(Qt.AlignCenter)
-        layoutVideosRecortados.addWidget(recortes)
+        listaRecortes = QLabel('Videos recortados')
+        listaRecortes.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
+        listaRecortes.setAlignment(Qt.AlignCenter)
+        layoutVideosRecortados.addWidget(QLabel('Videos recortados'))
+        layoutVideosRecortados.addWidget(listaRecortes)
 
         layoutCarregarRecortar.addLayout(layoutCarregarVideo, 8)
         layoutCarregarRecortar.addLayout(layoutVideosRecortados, 2)
@@ -71,9 +78,15 @@ class TelaCarregarRecortar(QWidget):
             self.player.setSource(QUrl.fromLocalFile(caminho))
             self.player.play()
     
-    def atualizar_slider(self, posicao):
+    def atualizarSlider(self, posicao):
         self.slider.setMaximum(self.player.duration())
         self.slider.setValue(posicao)
+    
+    def atualizarTemporalizador(self, posicao):
+        self.slider.setValue(posicao)
+        tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
+        tempoTotal = QTime(0, 0, 0).addMSecs(self.player.duration())
+        self.temporizador.setText(f"{tempoAtual.toString('hh:mm:ss')} / {tempoTotal.toString('hh:mm:ss')}")
 
 
 class TelaEditar(QWidget):
@@ -201,7 +214,7 @@ class TelaPrincipal(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Editor de Video')
-        self.setFixedSize(1300,650)
+        self.setFixedSize(1200,650)
 
         temaInicial = TelaConfiguracao('Escuro')
         temaInicial.alterarTema('Escuro')

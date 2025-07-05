@@ -1,10 +1,13 @@
 import sys
 import os
+import datetime
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog,
-    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox
+    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QUrl, Qt, QTime, QTimer
+from PySide6.QtMultimediaWidgets import QVideoWidget
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 
 class TelaCarregarRecortar(QWidget):
@@ -16,37 +19,71 @@ class TelaCarregarRecortar(QWidget):
 
         layoutCarregarVideo = QVBoxLayout()
 
+        self.videoWidget = QVideoWidget()
+        self.player = QMediaPlayer()
+        self.audioOutput = QAudioOutput()
+        self.player.setAudioOutput(self.audioOutput)
+        self.player.setVideoOutput(self.videoWidget)
 
-
-        layoutCarregarVideo.addWidget(QLabel('Carregue o vídeo')) # aparece antes de carregar o video, desaparece depois de carregar
-        layoutCarregarVideo.setAlignment(Qt.AlignCenter)
-        layoutCarregarVideo.addStretch()
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal { height: 8px; background: #ccc; }
+            QSlider::handle:horizontal { width: 16px; background: #444; border-radius: 8px; }
+            QSlider::sub-page:horizontal { background: #0080ff; }
+        """)
 
         layoutBotoes = QHBoxLayout()
+        botaoCarregar = QPushButton('Carregar')
         botaoRecortar = QPushButton('Recortar')
         botaoEditar = QPushButton('Editar')
         botaoSalvar = QPushButton('Salvar')
 
+        botaoCarregar.clicked.connect(self.carregarVideo)
+        self.player.positionChanged.connect(self.atualizar_slider)
+        self.slider.sliderMoved.connect(self.player.setPosition)
+
+        layoutBotoes.addWidget(botaoCarregar)
         layoutBotoes.addWidget(botaoRecortar)
         layoutBotoes.addWidget(botaoEditar)
         layoutBotoes.addWidget(botaoSalvar)
 
+        layoutCarregarVideo.addWidget(self.videoWidget)
+        layoutCarregarVideo.addWidget(self.slider)
         layoutCarregarVideo.addLayout(layoutBotoes)
+
 
         layoutVideosRecortados = QVBoxLayout()
 
+        recortes = QLabel('Videos recortados')
+        recortes.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
+        recortes.setAlignment(Qt.AlignCenter)
+        layoutVideosRecortados.addWidget(recortes)
 
-
-        layoutCarregarRecortar.addLayout(layoutCarregarVideo)
-        layoutCarregarRecortar.addLayout(layoutVideosRecortados)
+        layoutCarregarRecortar.addLayout(layoutCarregarVideo, 8)
+        layoutCarregarRecortar.addLayout(layoutVideosRecortados, 2)
 
         layoutPrincipalCarregarRecortar.addLayout(layoutCarregarRecortar)
         self.setLayout(layoutPrincipalCarregarRecortar)
+
+    def carregarVideo(self):
+        caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
+        if caminho:
+            self.player.setSource(QUrl.fromLocalFile(caminho))
+            self.player.play()
+    
+    def atualizar_slider(self, posicao):
+        self.slider.setMaximum(self.player.duration())
+        self.slider.setValue(posicao)
 
 
 class TelaEditar(QWidget):
     def __init__(self):
         super().__init__()
+
+        pastaRecorte = 'pastaRecorte'
+        if not os.path.exists(pastaRecorte):
+            os.mkdir(pastaRecorte)
+
         layoutPrincipalEditar = QVBoxLayout()
 
         layoutEdicao = QHBoxLayout()
@@ -61,10 +98,13 @@ class TelaEditar(QWidget):
 
         layoutConfigEdicao = QVBoxLayout()
 
+        menuEdicao = QLabel('Ferramentas')
+        menuEdicao.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
+        menuEdicao.setAlignment(Qt.AlignCenter)
+        layoutConfigEdicao.addWidget(menuEdicao)
 
-
-        layoutEdicao.addLayout(layoutVideoEdicao)
-        layoutEdicao.addLayout(layoutConfigEdicao)
+        layoutEdicao.addLayout(layoutVideoEdicao, 8)
+        layoutEdicao.addLayout(layoutConfigEdicao, 2)
 
         layoutPrincipalEditar.addLayout(layoutEdicao)
         self.setLayout(layoutPrincipalEditar)
@@ -73,6 +113,11 @@ class TelaEditar(QWidget):
 class TelaSalvar(QWidget):
     def __init__(self):
         super().__init__()
+
+        novosVideos = 'novosVideos'
+        if not os.path.exists(novosVideos):
+            os.mkdir(novosVideos)
+
         layoutPrincipalSalvar = QVBoxLayout()
 
         layoutSalvar = QHBoxLayout()
@@ -92,10 +137,13 @@ class TelaSalvar(QWidget):
 
         layoutSelecaoVideos = QVBoxLayout()
 
-        
+        menuSalvar = QLabel('Videos a salvar')
+        menuSalvar.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
+        menuSalvar.setAlignment(Qt.AlignCenter)
+        layoutSelecaoVideos.addWidget(menuSalvar)
 
-        layoutSalvar.addLayout(layoutVideoRecortado)
-        layoutSalvar.addLayout(layoutSelecaoVideos)
+        layoutSalvar.addLayout(layoutVideoRecortado, 8)
+        layoutSalvar.addLayout(layoutSelecaoVideos, 2)
 
         layoutPrincipalSalvar.addLayout(layoutSalvar)
         self.setLayout(layoutPrincipalSalvar)
@@ -109,6 +157,13 @@ class TelaSalvar(QWidget):
         )
         if confirmacao == QMessageBox.Yes:
             QMessageBox.information(self, 'Salvo', 'O video foi salvo')
+            os.chdir('novosVideos')
+            
+            # configurar para que crie uma pasta por dia que salvar o video # datetime
+            # salvar o video com moviepy
+
+            os.chdir('..')
+
         else:
             QMessageBox.information(self, 'Editar Video', 'Edite novamente o video')
 
@@ -178,13 +233,13 @@ class TelaPrincipal(QMainWindow):
         menuLateral.addWidget(botaoCarregar)
         menuLateral.addWidget(botaoEditar)
         menuLateral.addWidget(botaoSalvar)
-        menuLateral.addWidget(botaoConfig)
         menuLateral.addStretch()
+        menuLateral.addWidget(botaoConfig)
         menuLateral.addWidget(QLabel('Versão 1.0.0'))
 
         layoutPrincipal = QHBoxLayout()
-        layoutPrincipal.addLayout(menuLateral)
-        layoutPrincipal.addWidget(self.stack)
+        layoutPrincipal.addLayout(menuLateral, 1)
+        layoutPrincipal.addWidget(self.stack, 9)
 
         container = QWidget()
         container.setLayout(layoutPrincipal)

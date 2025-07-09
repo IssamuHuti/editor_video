@@ -5,88 +5,91 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog,
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget
 )
-from PySide6.QtCore import QUrl, Qt, QTime, QTimer
+from PySide6.QtCore import QUrl, Qt, QTime, QTimer, Signal
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PySide6.QtGui import QMouseEvent, QPainter, QColor
 
 
 class TelaCarregarRecortar(QWidget):
     def __init__(self):
         super().__init__()
-        layoutPrincipalCarregarRecortar = QVBoxLayout()
+        self.setWindowTitle("Recorte de Vídeo")
+        self.resize(800, 500)
 
-        layoutCarregarRecortar = QHBoxLayout()
-
-        layoutCarregarVideo = QVBoxLayout()
-
-        self.videoWidget = QVideoWidget()
-        self.player = QMediaPlayer()
-        self.audioOutput = QAudioOutput()
+        self.player = QMediaPlayer(self)
+        self.audioOutput = QAudioOutput(self)
         self.player.setAudioOutput(self.audioOutput)
+
+        self.videoWidget = VideoWidgetInterativo(self)
         self.player.setVideoOutput(self.videoWidget)
 
-        self.slider = QSlider(Qt.Horizontal)
+        self.slider = SliderComCaixaFlutuante(Qt.Horizontal)
         self.slider.setStyleSheet("""
             QSlider::groove:horizontal { height: 8px; background: #ccc; }
             QSlider::handle:horizontal { width: 16px; background: #444; border-radius: 8px; }
             QSlider::sub-page:horizontal { background: #0080ff; }
         """)
+        self.slider.setMouseTracking(True)
 
-        layoutBotoes = QHBoxLayout()
-        botaoCarregar = QPushButton('Carregar')
-        botaoRecortar = QPushButton('Recortar')
-        botaoEditar = QPushButton('Editar')
-        botaoSalvar = QPushButton('Salvar')
-
-        botaoCarregar.clicked.connect(self.carregarVideo)
         self.player.positionChanged.connect(self.atualizarSlider)
-        self.player.positionChanged.connect(self.atualizarTemporalizador)
+        self.player.durationChanged.connect(lambda dur: self.slider.setMaximum(dur))
         self.slider.sliderMoved.connect(self.player.setPosition)
+        self.videoWidget.select.connect(self.alternarPlayPause)
 
-        layoutBotoes.addWidget(botaoCarregar)
-        layoutBotoes.addWidget(botaoRecortar)
-        layoutBotoes.addWidget(botaoEditar)
-        layoutBotoes.addWidget(botaoSalvar)
+        # Botões
+        layoutBotoes = QHBoxLayout()
+        for texto in ["Carregar", "Recortar", "Editar", "Salvar"]:
+            botao = QPushButton(texto)
+            layoutBotoes.addWidget(botao)
+            if texto == "Carregar":
+                botao.clicked.connect(self.carregarVideo)
 
-        layoutTempo = QHBoxLayout()
+        # Layout tempo
         self.temporizador = QLabel("00:00:00 / 00:00:00")
+        layoutTempo = QHBoxLayout()
         layoutTempo.addWidget(self.temporizador)
         layoutTempo.addWidget(self.slider)
 
-        layoutCarregarVideo.addWidget(self.videoWidget)
-        layoutCarregarVideo.addLayout(layoutTempo)
-        layoutCarregarVideo.addLayout(layoutBotoes)
+        # Layout vídeo
+        layoutVideo = QVBoxLayout()
+        layoutVideo.addWidget(self.videoWidget)
+        layoutVideo.addLayout(layoutTempo)
+        layoutVideo.addLayout(layoutBotoes)
 
+        # Lista recortes
+        layoutRecortes = QVBoxLayout()
+        layoutRecortes.addWidget(QLabel("Vídeos recortados"))
+        layoutRecortes.addWidget(QListWidget())
 
-        layoutVideosRecortados = QVBoxLayout()
+        layoutPrincipal = QHBoxLayout()
+        layoutPrincipal.addLayout(layoutVideo, 8)
+        layoutPrincipal.addLayout(layoutRecortes, 2)
 
-        listaRecortes = QLabel('Videos recortados')
-        listaRecortes.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
-        listaRecortes.setAlignment(Qt.AlignCenter)
-        layoutVideosRecortados.addWidget(QLabel('Videos recortados'))
-        layoutVideosRecortados.addWidget(listaRecortes)
-
-        layoutCarregarRecortar.addLayout(layoutCarregarVideo, 8)
-        layoutCarregarRecortar.addLayout(layoutVideosRecortados, 2)
-
-        layoutPrincipalCarregarRecortar.addLayout(layoutCarregarRecortar)
-        self.setLayout(layoutPrincipalCarregarRecortar)
+        mainLayout = QVBoxLayout()
+        mainLayout.addLayout(layoutPrincipal)
+        self.setLayout(mainLayout)
 
     def carregarVideo(self):
         caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
         if caminho:
             self.player.setSource(QUrl.fromLocalFile(caminho))
             self.player.play()
-    
+
     def atualizarSlider(self, posicao):
-        self.slider.setMaximum(self.player.duration())
+        duracao = self.player.duration()
+        self.slider.setMaximum(duracao)
         self.slider.setValue(posicao)
-    
-    def atualizarTemporalizador(self, posicao):
-        self.slider.setValue(posicao)
+
         tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
-        tempoTotal = QTime(0, 0, 0).addMSecs(self.player.duration())
+        tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
         self.temporizador.setText(f"{tempoAtual.toString('hh:mm:ss')} / {tempoTotal.toString('hh:mm:ss')}")
+
+    def alternarPlayPause(self):
+        if self.player.playbackState() == QMediaPlayer.PlayingState:
+            self.player.pause()
+        else:
+            self.player.play()
 
 
 class TelaEditar(QWidget):
@@ -208,6 +211,102 @@ class TelaConfiguracao(QWidget):
             app.setStyleSheet(ESTILO_ESCURO)
         elif temaSelecionada == 'Claro':
             app.setStyleSheet(ESTILO_CLARO)
+
+
+class SliderComCaixaFlutuante(QSlider):
+    def __init__(self, orientacao, parent=None):
+        super().__init__(orientacao, parent)
+        self.setMouseTracking(True)
+        self.inicio_recorte = None
+        self.fim_recorte = None
+        self.setFixedHeight(30)  # Aumenta o tamanho do widget inteiro
+
+        self.recortes = []  # Lista de (inicio, fim)
+        self.inicio_temp = None  # Marca o primeiro clique
+
+        self.caixaFlutuante = QLabel("00:00:00", self)
+        # Aumenta a espessura visual do groove e handle
+        self.caixaFlutuante.setStyleSheet(""" 
+            QSlider::groove:horizontal {
+                height: 12px;
+                background: #ccc;
+                border-radius: 6px;
+            }
+            QSlider::handle:horizontal {
+                background: #0078d7;
+                width: 16px;
+                height: 16px;
+                margin: -4px 0;
+                border-radius: 8px;
+            }
+        """)
+        self.caixaFlutuante.setVisible(False)
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)  # MANTÉM O COMPORTAMENTO PADRÃO DO SLIDER
+
+        valorMinimo = self.minimum()
+        valorMaximo = self.maximum()
+        largura = self.width()
+        valor = valorMinimo + ((valorMaximo - valorMinimo) * event.position().x()) / largura
+        valor = int(valor)
+
+        # Formata o tempo como hh:mm:ss
+        tempo = QTime(0, 0, 0).addMSecs(valor)
+        self.caixaFlutuante.setText(tempo.toString("hh:mm:ss"))
+        self.caixaFlutuante.adjustSize()
+
+        # Posiciona a caixa
+        x = int(event.position().x()) - self.caixaFlutuante.width() // 2
+        self.caixaFlutuante.move(x, -30)
+        self.caixaFlutuante.setVisible(True)
+
+    def leaveEvent(self, event):
+        self.caixaFlutuante.setVisible(False)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent):
+        # Calcula o valor clicado
+        pos = event.position().x() if hasattr(event, 'position') else event.x()
+        valor = self.minimum() + ((self.maximum() - self.minimum()) * pos) / self.width()
+        valor = int(valor)
+
+        # Alternância lógica: primeiro início, depois fim
+        if event.button() == Qt.RightButton:
+            if self.inicio_temp is None:
+                self.inicio_temp = valor
+            else:
+                fim = max(valor, self.inicio_temp)
+                inicio = min(valor, self.inicio_temp)
+                self.recortes.append((inicio, fim))
+                self.inicio_temp = None
+            self.update() # Reforça a pintura
+        else:
+            super().mousePressEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        if self.recortes:
+            painter = QPainter(self)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(0, 255, 0, 100))  # Verde transparente
+
+            # Calcula posição em pixels dos limites marcados
+            for inicio, fim in self.recortes:
+                inicio_x = int(self.width() * (inicio - self.minimum()) / (self.maximum() - self.minimum()))
+                fim_x = int(self.width() * (fim - self.minimum()) / (self.maximum() - self.minimum()))
+                painter.drawRect(inicio_x, 0, fim_x - inicio_x, self.height())
+
+            painter.end()
+
+
+class VideoWidgetInterativo(QVideoWidget):
+    select = Signal()  # Sinal personalizado
+
+    def mousePressEvent(self, event):
+        self.select.emit()  # Emite o sinal quando o vídeo for clicado
+        super().mousePressEvent(event)
 
 
 class TelaPrincipal(QMainWindow):

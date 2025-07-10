@@ -24,7 +24,7 @@ class TelaCarregarRecortar(QWidget):
         self.videoWidget = VideoWidgetInterativo(self)
         self.player.setVideoOutput(self.videoWidget)
 
-        self.slider = SliderComCaixaFlutuante(Qt.Horizontal)
+        self.slider = ConfigSlider(Qt.Horizontal)
         self.slider.setStyleSheet("""
             QSlider::groove:horizontal { height: 8px; background: #ccc; }
             QSlider::handle:horizontal { width: 16px; background: #444; border-radius: 8px; }
@@ -213,10 +213,13 @@ class TelaConfiguracao(QWidget):
             app.setStyleSheet(ESTILO_CLARO)
 
 
-class SliderComCaixaFlutuante(QSlider):
+class ConfigSlider(QSlider):
     def __init__(self, orientacao, parent=None):
         super().__init__(orientacao, parent)
         self.setMouseTracking(True)
+        self.setMinimum(0)
+        self.setMaximum(100000)
+        
         self.inicio_recorte = None
         self.fim_recorte = None
         self.setFixedHeight(30)  # Aumenta o tamanho do widget inteiro
@@ -247,8 +250,12 @@ class SliderComCaixaFlutuante(QSlider):
 
         valorMinimo = self.minimum()
         valorMaximo = self.maximum()
+        if valorMaximo - valorMinimo == 0: # Evita divisão por zero
+            return
+        
         largura = self.width()
-        valor = valorMinimo + ((valorMaximo - valorMinimo) * event.position().x()) / largura
+        pos = event.pos().x() # event.pos() retorna QPoint
+        valor = valorMinimo + ((valorMaximo - valorMinimo) * pos) / largura #
         valor = int(valor)
 
         # Formata o tempo como hh:mm:ss
@@ -258,29 +265,38 @@ class SliderComCaixaFlutuante(QSlider):
 
         # Posiciona a caixa
         x = int(event.position().x()) - self.caixaFlutuante.width() // 2
-        self.caixaFlutuante.move(x, -30)
+        y = -self.caixaFlutuante.height() - 5  # um pouco acima do groove
+        self.caixaFlutuante.move(x, y)
         self.caixaFlutuante.setVisible(True)
 
     def leaveEvent(self, event):
         self.caixaFlutuante.setVisible(False)
-        super().leaveEvent(event)
+        # super().leaveEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent):
         # Calcula o valor clicado
-        pos = event.position().x() if hasattr(event, 'position') else event.x()
-        valor = self.minimum() + ((self.maximum() - self.minimum()) * pos) / self.width()
-        valor = int(valor)
-
-        # Alternância lógica: primeiro início, depois fim
         if event.button() == Qt.RightButton:
+            pos = event.position().x() if hasattr(event, 'position') else event.x()
+            valor = self.minimum() + ((self.maximum() - self.minimum()) * pos) / self.width()
+            # valor = int(valor)
+
+            # Verifica se o clique está dentro de uma região marcada
+            for inicio, fim in self.recortes:
+                if inicio <= valor <= fim:
+                    self.recortes.remove((inicio, fim))
+                    self.update()
+                    return
+                
+            # Alternância lógica: primeiro início, depois fim
             if self.inicio_temp is None:
                 self.inicio_temp = valor
             else:
-                fim = max(valor, self.inicio_temp)
-                inicio = min(valor, self.inicio_temp)
+                inicio = min(valor, self.inicio_temp, valor)
+                fim = max(valor, self.inicio_temp, valor)
                 self.recortes.append((inicio, fim))
                 self.inicio_temp = None
-            self.update() # Reforça a pintura
+                self.update() # Reforça a pintura
+
         else:
             super().mousePressEvent(event)
 
@@ -329,13 +345,13 @@ class TelaPrincipal(QMainWindow):
         self.stack.addWidget(self.salvar)
         self.stack.addWidget(self.config)
 
-        botaoCarregar = QPushButton('Carregar')
+        botaoCarregar = QPushButton('CARREGAR')
         botaoCarregar.clicked.connect(lambda: self.stack.setCurrentIndex(0))
 
-        botaoEditar = QPushButton('Editar')
+        botaoEditar = QPushButton('EDITAR')
         botaoEditar.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         
-        botaoSalvar = QPushButton('Salvar')
+        botaoSalvar = QPushButton('SALVAR')
         botaoSalvar.clicked.connect(lambda: self.stack.setCurrentIndex(2))
         
         botaoConfig = QPushButton('Configuração')

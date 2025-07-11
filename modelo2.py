@@ -9,6 +9,7 @@ from PySide6.QtCore import QUrl, Qt, QTime, QTimer, Signal
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtGui import QMouseEvent, QPainter, QColor
+from moviepy.editor import VideoFileClip
 
 
 class TelaCarregarRecortar(QWidget):
@@ -44,7 +45,13 @@ class TelaCarregarRecortar(QWidget):
             layoutBotoes.addWidget(botao)
             if texto == "Carregar":
                 botao.clicked.connect(self.carregarVideo)
-
+            elif texto == "Recortar":
+                botao.clicked.connect(self.recortarVideo)
+            elif texto == "Editar":
+                botao.clicked.connect(self.trocarTelaEditar)
+            elif texto == "Salvar":
+                botao.clicked.connect(self.trocarTelaSalvar)
+            
         # Layout tempo
         self.temporizador = QLabel("00:00:00 / 00:00:00")
         layoutTempo = QHBoxLayout()
@@ -57,10 +64,13 @@ class TelaCarregarRecortar(QWidget):
         layoutVideo.addLayout(layoutTempo)
         layoutVideo.addLayout(layoutBotoes)
 
+        listaVideosRecortados = QListWidget()
+        self.pontosRecortes = ConfigSlider()
+
         # Lista recortes
         layoutRecortes = QVBoxLayout()
         layoutRecortes.addWidget(QLabel("Vídeos recortados"))
-        layoutRecortes.addWidget(QListWidget())
+        layoutRecortes.addWidget(listaVideosRecortados)
 
         layoutPrincipal = QHBoxLayout()
         layoutPrincipal.addLayout(layoutVideo, 8)
@@ -75,6 +85,20 @@ class TelaCarregarRecortar(QWidget):
         if caminho:
             self.player.setSource(QUrl.fromLocalFile(caminho))
             self.player.play()
+
+    def recortarVideo(self):
+        trechosRecorte = self.pontosRecortes
+        videoRecortar = VideoFileClip(self.carregarVideo.caminho)
+        for inicio, fim in trechosRecorte:
+            contagemClips = 1
+            clipVideo = videoRecortar.subclip(inicio, fim)
+            clipVideo.write_videofile(f'videoRecortado{contagemClips}.mp4')
+
+    def trocarTelaEditar(self):
+        ...
+
+    def trocarTelaSalvar(self):
+        ...
 
     def atualizarSlider(self, posicao):
         duracao = self.player.duration()
@@ -245,29 +269,30 @@ class ConfigSlider(QSlider):
         """)
         self.caixaFlutuante.setVisible(False)
 
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)  # MANTÉM O COMPORTAMENTO PADRÃO DO SLIDER
+# a função não está funcionando
+    # def mouseMoveEvent(self, event):
+    #     super().mouseMoveEvent(event)  # MANTÉM O COMPORTAMENTO PADRÃO DO SLIDER
 
-        valorMinimo = self.minimum()
-        valorMaximo = self.maximum()
-        if valorMaximo - valorMinimo == 0: # Evita divisão por zero
-            return
+    #     valorMinimo = self.minimum()
+    #     valorMaximo = self.maximum()
+    #     if valorMaximo - valorMinimo == 0: # Evita divisão por zero
+    #         return
         
-        largura = self.width()
-        pos = event.pos().x() # event.pos() retorna QPoint
-        valor = valorMinimo + ((valorMaximo - valorMinimo) * pos) / largura #
-        valor = int(valor)
+    #     largura = self.width()
+    #     pos = event.pos().x() # event.pos() retorna QPoint
+    #     valor = valorMinimo + ((valorMaximo - valorMinimo) * pos) / largura #
+    #     valor = int(valor)
 
-        # Formata o tempo como hh:mm:ss
-        tempo = QTime(0, 0, 0).addMSecs(valor)
-        self.caixaFlutuante.setText(tempo.toString("hh:mm:ss"))
-        self.caixaFlutuante.adjustSize()
+    #     # Formata o tempo como hh:mm:ss
+    #     tempo = QTime(0, 0, 0).addMSecs(valor)
+    #     self.caixaFlutuante.setText(tempo.toString("hh:mm:ss"))
+    #     self.caixaFlutuante.adjustSize()
 
-        # Posiciona a caixa
-        x = int(event.position().x()) - self.caixaFlutuante.width() // 2
-        y = -self.caixaFlutuante.height() - 5  # um pouco acima do groove
-        self.caixaFlutuante.move(x, y)
-        self.caixaFlutuante.setVisible(True)
+    #     # Posiciona a caixa
+    #     x = int(event.position().x()) - self.caixaFlutuante.width() // 2
+    #     y = -self.caixaFlutuante.height() - 5  # um pouco acima do groove
+    #     self.caixaFlutuante.move(x, y)
+    #     self.caixaFlutuante.setVisible(True)
 
     def leaveEvent(self, event):
         self.caixaFlutuante.setVisible(False)

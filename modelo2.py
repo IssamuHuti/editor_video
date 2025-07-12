@@ -2,7 +2,7 @@ import sys
 import os
 import datetime
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog,
+    QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog, QListWidgetItem,
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget
 )
 from PySide6.QtCore import QUrl, Qt, QTime, QTimer, Signal
@@ -32,13 +32,11 @@ class TelaCarregarRecortar(QWidget):
             QSlider::sub-page:horizontal { background: #0080ff; }
         """)
         self.slider.setMouseTracking(True)
-
-        self.player.positionChanged.connect(self.atualizarSlider)
-        self.player.durationChanged.connect(lambda dur: self.slider.setMaximum(dur))
-        self.slider.sliderMoved.connect(self.player.setPosition)
-        self.videoWidget.select.connect(self.alternarPlayPause)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(int(self.player.duration()))
 
         # Botões
+        self.contagemClips = 1
         layoutBotoes = QHBoxLayout()
         for texto in ["Carregar", "Recortar", "Editar", "Salvar"]:
             botao = QPushButton(texto)
@@ -64,35 +62,65 @@ class TelaCarregarRecortar(QWidget):
         layoutVideo.addLayout(layoutTempo)
         layoutVideo.addLayout(layoutBotoes)
 
-        listaVideosRecortados = QListWidget()
-        self.pontosRecortes = ConfigSlider()
+        self.listaVideosRecortados = QListWidget()
+        self.caminhosRecortes = []
 
         # Lista recortes
-        layoutRecortes = QVBoxLayout()
-        layoutRecortes.addWidget(QLabel("Vídeos recortados"))
-        layoutRecortes.addWidget(listaVideosRecortados)
+        self.layoutRecortes = QVBoxLayout()
+        self.layoutRecortes.addWidget(QLabel("Vídeos recortados"))
+        self.layoutRecortes.addWidget(self.listaVideosRecortados)
 
         layoutPrincipal = QHBoxLayout()
         layoutPrincipal.addLayout(layoutVideo, 8)
-        layoutPrincipal.addLayout(layoutRecortes, 2)
+        layoutPrincipal.addLayout(self.layoutRecortes, 2)
 
         mainLayout = QVBoxLayout()
         mainLayout.addLayout(layoutPrincipal)
         self.setLayout(mainLayout)
+        
+        self.player.positionChanged.connect(self.atualizarSlider)
+        self.player.durationChanged.connect(lambda dur: self.slider.setMaximum(dur))
+        self.listaVideosRecortados.itemDoubleClicked.connect(self.carregarRecortes)
+        self.slider.sliderMoved.connect(self.player.setPosition)
+        self.videoWidget.select.connect(self.alternarPlayPause)
 
     def carregarVideo(self):
         caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
         if caminho:
+            self.caminhoVideo = caminho
             self.player.setSource(QUrl.fromLocalFile(caminho))
             self.player.play()
 
+            # Corrigindo o máximo do slider com base na duração real do vídeo
+            video = VideoFileClip(caminho)
+            duracao = video.duration  # Em segundos (float)
+            self.slider.setMinimum(0)
+            self.slider.setMaximum(duracao)  # ← Corrige a base do slider
+
     def recortarVideo(self):
-        trechosRecorte = self.pontosRecortes
-        videoRecortar = VideoFileClip(self.carregarVideo.caminho)
+        trechosRecorte = self.slider.recortes
+        videoRecortar = VideoFileClip(self.caminhoVideo)
+
+        pastaRecortes = 'recortes'
+        if not os.path.exists(pastaRecortes):
+            os.mkdir(pastaRecortes)
+
         for inicio, fim in trechosRecorte:
-            contagemClips = 1
+            inicio = inicio / 1000
+            fim = fim / 1000
+
             clipVideo = videoRecortar.subclip(inicio, fim)
-            clipVideo.write_videofile(f'videoRecortado{contagemClips}.mp4')
+
+            nomeArquivoRecortado = f'videoRecortado{self.contagemClips}.mp4'
+            caminhoArquivoRecortado = os.path.join(pastaRecortes, nomeArquivoRecortado)
+
+            clipVideo.write_videofile(caminhoArquivoRecortado)
+
+            item = QListWidgetItem(nomeArquivoRecortado)
+            self.listaVideosRecortados.addItem(item)
+            self.caminhosRecortes.append(caminhoArquivoRecortado)
+            
+            self.contagemClips += 1
 
     def trocarTelaEditar(self):
         ...
@@ -115,10 +143,17 @@ class TelaCarregarRecortar(QWidget):
         else:
             self.player.play()
 
+    def carregarRecortes(self, item):
+        indice = self.listaVideosRecortados.row(item)
+        caminho = self.caminhosRecortes[indice]
+        self.player.setSource(QUrl.fromLocalFile(caminho))
+        self.player.play()
+
 
 class TelaEditar(QWidget):
     def __init__(self):
         super().__init__()
+        instanciaTelaCarregar = TelaCarregarRecortar()
 
         pastaRecorte = 'pastaRecorte'
         if not os.path.exists(pastaRecorte):
@@ -138,13 +173,11 @@ class TelaEditar(QWidget):
 
         layoutConfigEdicao = QVBoxLayout()
 
-        menuEdicao = QLabel('Ferramentas')
-        menuEdicao.setStyleSheet("color: black; background-color: lightgray; border: 1px solid black;")
-        menuEdicao.setAlignment(Qt.AlignCenter)
-        layoutConfigEdicao.addWidget(menuEdicao)
+        menuEdicao = instanciaTelaCarregar.layoutRecortes
+        # layoutConfigEdicao.addWidget(menuEdicao)
 
         layoutEdicao.addLayout(layoutVideoEdicao, 8)
-        layoutEdicao.addLayout(layoutConfigEdicao, 2)
+        layoutEdicao.addLayout(menuEdicao, 2)
 
         layoutPrincipalEditar.addLayout(layoutEdicao)
         self.setLayout(layoutPrincipalEditar)
@@ -303,7 +336,6 @@ class ConfigSlider(QSlider):
         if event.button() == Qt.RightButton:
             pos = event.position().x() if hasattr(event, 'position') else event.x()
             valor = self.minimum() + ((self.maximum() - self.minimum()) * pos) / self.width()
-            # valor = int(valor)
 
             # Verifica se o clique está dentro de uma região marcada
             for inicio, fim in self.recortes:
@@ -316,8 +348,8 @@ class ConfigSlider(QSlider):
             if self.inicio_temp is None:
                 self.inicio_temp = valor
             else:
-                inicio = min(valor, self.inicio_temp, valor)
-                fim = max(valor, self.inicio_temp, valor)
+                inicio = float(min(self.inicio_temp, valor))
+                fim = float(max(self.inicio_temp, valor))
                 self.recortes.append((inicio, fim))
                 self.inicio_temp = None
                 self.update() # Reforça a pintura

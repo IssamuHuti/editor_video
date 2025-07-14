@@ -151,35 +151,56 @@ class TelaCarregarRecortar(QWidget):
 
 
 class TelaEditar(QWidget):
-    def __init__(self):
+    def __init__(self, telaCarregada):
         super().__init__()
-        instanciaTelaCarregar = TelaCarregarRecortar()
+        self.instanciaTelaCarregar = telaCarregada # ← aqui está a instância com os recortes
 
         pastaRecorte = 'pastaRecorte'
         if not os.path.exists(pastaRecorte):
             os.mkdir(pastaRecorte)
 
-        layoutPrincipalEditar = QVBoxLayout()
-
-        layoutEdicao = QHBoxLayout()
+        layoutPrincipalEditar = QHBoxLayout()
 
         layoutVideoEdicao = QVBoxLayout()
 
+        self.playerEditor = QMediaPlayer(self)
+        self.audioEditor = QAudioOutput()
+        self.playerEditor.setAudioOutput(self.audioEditor)
 
+        self.videoWidgetEditor = QVideoWidget()
+        self.playerEditor.setVideoOutput(self.videoWidgetEditor)
 
-        layoutVideoEdicao.addWidget(QLabel('Edição'))
-        layoutVideoEdicao.addWidget(QLabel('Escolha o vídeo')) # desaparece após escolher o vídeo
-        layoutVideoEdicao.setAlignment(Qt.AlignCenter)
+        self.sliderEditor = ConfigSlider(Qt.Horizontal)
+        self.sliderEditor.setStyleSheet("""
+            QSlider::groove:horizontal { height: 8px; background: #ccc; }
+            QSlider::handle:horizontal { width: 16px; background: #444; border-radius: 8px; }
+            QSlider::sub-page:horizontal { background: #0080ff; }
+        """)
+        self.sliderEditor.setMouseTracking(True)
+        self.sliderEditor.setMinimum(0)
+        self.sliderEditor.setMaximum(int(self.playerEditor.duration()))
 
-        layoutConfigEdicao = QVBoxLayout()
+        self.temporizadorEditor = QLabel("00:00:00 / 00:00:00")
+        layoutTempoEditor = QHBoxLayout()
+        layoutTempoEditor.addWidget(self.temporizadorEditor)
+        layoutTempoEditor.addWidget(self.sliderEditor)
 
-        menuEdicao = instanciaTelaCarregar.layoutRecortes
-        # layoutConfigEdicao.addWidget(menuEdicao)
+        layoutVideoEdicao.addWidget(self.videoWidgetEditor)
+        layoutVideoEdicao.addLayout(layoutTempoEditor) # desaparece após escolher o vídeo
 
-        layoutEdicao.addLayout(layoutVideoEdicao, 8)
-        layoutEdicao.addLayout(menuEdicao, 2)
+        layoutSelecaoVideos = QVBoxLayout()
 
-        layoutPrincipalEditar.addLayout(layoutEdicao)
+        self.listaVideosRecortadosEdicao = QListWidget()
+        for i in range(self.instanciaTelaCarregar.listaVideosRecortados.count()):
+            item_text = self.instanciaTelaCarregar.listaVideosRecortados.item(i).text()
+            self.listaVideosRecortadosEdicao.addItem(item_text)
+
+        layoutSelecaoVideos.addWidget(QLabel('Vídeos recortados'))
+        layoutSelecaoVideos.addWidget(self.listaVideosRecortadosEdicao)
+
+        layoutPrincipalEditar.addLayout(layoutVideoEdicao, 8)
+        layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
+
         self.setLayout(layoutPrincipalEditar)
 
 
@@ -200,7 +221,6 @@ class TelaSalvar(QWidget):
 
 
         botaoSalvar = QPushButton('Salvar')
-        botaoSalvar.clicked.connect(self.salvar)
 
         layoutVideoRecortado.addWidget(QLabel('Escolha o vídeo')) # desaparece após escolher o vídeo
         layoutVideoRecortado.setAlignment(Qt.AlignCenter)
@@ -220,6 +240,8 @@ class TelaSalvar(QWidget):
 
         layoutPrincipalSalvar.addLayout(layoutSalvar)
         self.setLayout(layoutPrincipalSalvar)
+
+        botaoSalvar.clicked.connect(self.salvar)
     
     def salvar(self):
         confirmacao = QMessageBox.question(
@@ -249,7 +271,6 @@ class TelaConfiguracao(QWidget):
         self.opcaoTemas = QComboBox()
         self.opcaoTemas.addItems(['Escuro', 'Claro'])
         self.opcaoTemas.setCurrentText(temaInicial)
-        self.opcaoTemas.currentTextChanged.connect(self.alterarTema)
 
         layoutTema = QHBoxLayout()
         layoutTema.addWidget(QLabel('Cores app: '))
@@ -261,6 +282,8 @@ class TelaConfiguracao(QWidget):
         layoutPrincipalConfig.addStretch()
 
         self.setLayout(layoutPrincipalConfig)
+
+        self.opcaoTemas.currentTextChanged.connect(self.alterarTema)
 
     def alterarTema(self, texto):
         temaSelecionada = texto
@@ -392,7 +415,7 @@ class TelaPrincipal(QMainWindow):
         temaInicial.alterarTema('Escuro')
 
         self.carregar = TelaCarregarRecortar()
-        self.edicao = TelaEditar()
+        self.edicao = QWidget()
         self.salvar = TelaSalvar()
         self.config = TelaConfiguracao('Escuro')
 
@@ -403,16 +426,9 @@ class TelaPrincipal(QMainWindow):
         self.stack.addWidget(self.config)
 
         botaoCarregar = QPushButton('CARREGAR')
-        botaoCarregar.clicked.connect(lambda: self.stack.setCurrentIndex(0))
-
         botaoEditar = QPushButton('EDITAR')
-        botaoEditar.clicked.connect(lambda: self.stack.setCurrentIndex(1))
-        
         botaoSalvar = QPushButton('SALVAR')
-        botaoSalvar.clicked.connect(lambda: self.stack.setCurrentIndex(2))
-        
         botaoConfig = QPushButton('Configuração')
-        botaoConfig.clicked.connect(lambda: self.stack.setCurrentIndex(3))
 
         menuLateral = QVBoxLayout()
         menuLateral.addWidget(botaoCarregar)
@@ -429,6 +445,27 @@ class TelaPrincipal(QMainWindow):
         container = QWidget()
         container.setLayout(layoutPrincipal)
         self.setCentralWidget(container)
+
+        botaoCarregar.clicked.connect(lambda: self.stack.setCurrentIndex(0))
+        botaoEditar.clicked.connect(self.abrirTelaEditar)
+        botaoSalvar.clicked.connect(lambda: self.stack.setCurrentIndex(2))
+        botaoConfig.clicked.connect(lambda: self.stack.setCurrentIndex(3))
+    
+    def abrirTelaEditar(self):
+        if not self.carregar.caminhosRecortes:
+            QMessageBox.warning(self, "Aviso", "Nenhum vídeo recortado disponível.")
+            return
+
+        # Cria nova tela com dados atualizados
+        novaTelaEditar = TelaEditar(self.carregar)
+
+        # Substitui widget antigo
+        self.stack.removeWidget(self.edicao)
+        self.edicao.deleteLater()
+        self.edicao = novaTelaEditar
+
+        self.stack.insertWidget(1, self.edicao)  # Reinsere na posição 1
+        self.stack.setCurrentIndex(1)  # Troca para a tela de edição
 
 
 ESTILO_CLARO = """

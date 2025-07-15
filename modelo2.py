@@ -167,7 +167,7 @@ class TelaEditar(QWidget):
         self.audioEditor = QAudioOutput()
         self.playerEditor.setAudioOutput(self.audioEditor)
 
-        self.videoWidgetEditor = QVideoWidget()
+        self.videoWidgetEditor = VideoWidgetInterativo(self)
         self.playerEditor.setVideoOutput(self.videoWidgetEditor)
 
         self.sliderEditor = ConfigSlider(Qt.Horizontal)
@@ -202,6 +202,31 @@ class TelaEditar(QWidget):
         layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
 
         self.setLayout(layoutPrincipalEditar)
+
+        self.listaVideosRecortadosEdicao.itemDoubleClicked.connect(self.reproduzirVideo)
+        self.playerEditor.positionChanged.connect(self.atualizarSlider)
+        self.videoWidgetEditor.select.connect(self.alternarPlayPause)
+
+    def reproduzirVideo(self, item):
+        indiceEditar = self.listaVideosRecortadosEdicao.row(item)
+        caminhoEditar = self.instanciaTelaCarregar.caminhosRecortes[indiceEditar]
+        self.playerEditor.setSource(QUrl.fromLocalFile(caminhoEditar))
+        self.playerEditor.play()
+    
+    def atualizarSlider(self, posicao):
+        duracao = self.playerEditor.duration()
+        self.sliderEditor.setMaximum(duracao)
+        self.sliderEditor.setValue(posicao)
+
+        tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
+        tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
+        self.temporizadorEditor.setText(f"{tempoAtual.toString('hh:mm:ss')} / {tempoTotal.toString('hh:mm:ss')}")
+    
+    def alternarPlayPause(self):
+        if self.playerEditor.playbackState() == QMediaPlayer.PlayingState:
+            self.playerEditor.pause()
+        else:
+            self.playerEditor.play()
 
 
 class TelaSalvar(QWidget):

@@ -3,7 +3,7 @@ import os
 import datetime
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog, QListWidgetItem,
-    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget
+    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget, QFrame
 )
 from PySide6.QtCore import QUrl, Qt, QTime, QTimer, Signal
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -188,22 +188,23 @@ class TelaEditar(QWidget):
         layoutVideoEdicao.addWidget(self.videoWidgetEditor)
         layoutVideoEdicao.addLayout(layoutTempoEditor) # desaparece após escolher o vídeo
 
+        opcoes_texto = [
+            self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
+                self.instanciaTelaCarregar.listaVideosRecortados.count()
+                )
+        ]
+
         layoutSelecaoVideos = QVBoxLayout()
-
-        self.listaVideosRecortadosEdicao = QListWidget()
-        for i in range(self.instanciaTelaCarregar.listaVideosRecortados.count()):
-            item_text = self.instanciaTelaCarregar.listaVideosRecortados.item(i).text()
-            self.listaVideosRecortadosEdicao.addItem(item_text)
-
-        layoutSelecaoVideos.addWidget(QLabel('Vídeos recortados'))
-        layoutSelecaoVideos.addWidget(self.listaVideosRecortadosEdicao)
+        self.caixaBotaoRecortes = CaixaLista('Vídeos recortados', opcoes_texto)
+        layoutSelecaoVideos.addWidget(self.caixaBotaoRecortes)
 
         layoutPrincipalEditar.addLayout(layoutVideoEdicao, 8)
         layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
 
         self.setLayout(layoutPrincipalEditar)
 
-        self.listaVideosRecortadosEdicao.itemDoubleClicked.connect(self.reproduzirVideo)
+        # self.listaVideosRecortadosEdicao.itemDoubleClicked.connect(self.reproduzirVideo)
+        self.caixaBotaoRecortes.lista.itemDoubleClicked.connect(self.reproduzirVideo)
         self.playerEditor.positionChanged.connect(self.atualizarSlider)
         self.videoWidgetEditor.select.connect(self.alternarPlayPause)
 
@@ -491,6 +492,35 @@ class TelaPrincipal(QMainWindow):
 
         self.stack.insertWidget(1, self.edicao)  # Reinsere na posição 1
         self.stack.setCurrentIndex(1)  # Troca para a tela de edição
+
+
+class CaixaLista(QFrame):
+    def __init__(self, titulo, opcoes, funcaoExpandir=None):
+        super().__init__()
+        self.expandirLista = funcaoExpandir
+
+        self.botaoLista = QPushButton(titulo)
+        self.lista = QListWidget()
+        self.lista.addItems(opcoes)
+        self.lista.setVisible(False)
+
+        layoutCaixaLista = QVBoxLayout(self)
+        layoutCaixaLista.setContentsMargins(0, 0, 0, 0)
+        layoutCaixaLista.addWidget(self.botaoLista)
+        layoutCaixaLista.addWidget(self.lista)
+
+        self.botaoLista.clicked.connect(self.esconderLista)
+
+    def esconderLista(self):
+        self.lista.setVisible(not self.lista.isVisible())
+        if self.expandirLista:
+            self.expandirLista()
+    
+    def listaExpandida(self):
+        return self.lista.isVisible()
+    
+    def alturaExpansao(self):
+        return self.botaoLista.height() + (self.lista.sizeHintForRow(0) * self.lista.count() if self.listaExpandida() else 0)
 
 
 ESTILO_CLARO = """

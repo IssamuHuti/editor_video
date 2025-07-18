@@ -38,7 +38,7 @@ class TelaCarregarRecortar(QWidget):
         # Botões
         self.contagemClips = 1
         layoutBotoes = QHBoxLayout()
-        for texto in ["Carregar", "Recortar", "Editar", "Salvar"]:
+        for texto in ["Carregar", "Recortar", "Editar"]:
             botao = QPushButton(texto)
             layoutBotoes.addWidget(botao)
             if texto == "Carregar":
@@ -47,8 +47,6 @@ class TelaCarregarRecortar(QWidget):
                 botao.clicked.connect(self.recortarVideo)
             elif texto == "Editar":
                 botao.clicked.connect(self.trocarTelaEditar)
-            elif texto == "Salvar":
-                botao.clicked.connect(self.trocarTelaSalvar)
             
         # Layout tempo
         self.temporizador = QLabel("00:00:00 / 00:00:00")
@@ -185,8 +183,15 @@ class TelaEditar(QWidget):
         layoutTempoEditor.addWidget(self.temporizadorEditor)
         layoutTempoEditor.addWidget(self.sliderEditor)
 
+        layoutBotoes = QHBoxLayout()
+        botaoCarregar = QPushButton('Carregar')
+        botaoSalvar = QPushButton('Salvar')
+        layoutBotoes.addWidget(botaoCarregar)
+        layoutBotoes.addWidget(botaoSalvar)
+
         layoutVideoEdicao.addWidget(self.videoWidgetEditor)
         layoutVideoEdicao.addLayout(layoutTempoEditor) # desaparece após escolher o vídeo
+        layoutVideoEdicao.addLayout(layoutBotoes)
 
         opcoes_texto = [
             self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
@@ -196,20 +201,37 @@ class TelaEditar(QWidget):
 
         layoutSelecaoVideos = QVBoxLayout()
         self.caixaBotaoRecortes = CaixaLista('Vídeos recortados', opcoes_texto)
+        self.caixaBotaoEditados = CaixaLista('Vídeos editados', opcoes_texto)
         layoutSelecaoVideos.addWidget(self.caixaBotaoRecortes)
+        layoutSelecaoVideos.addWidget(self.caixaBotaoEditados)
+        layoutSelecaoVideos.addStretch()
 
         layoutPrincipalEditar.addLayout(layoutVideoEdicao, 8)
         layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
 
         self.setLayout(layoutPrincipalEditar)
 
-        # self.listaVideosRecortadosEdicao.itemDoubleClicked.connect(self.reproduzirVideo)
+        botaoCarregar.clicked.connect(self.carregarVideo)
         self.caixaBotaoRecortes.lista.itemDoubleClicked.connect(self.reproduzirVideo)
+        self.caixaBotaoEditados.lista.itemDoubleClicked.connect(self.reproduzirVideo) # incompleto
         self.playerEditor.positionChanged.connect(self.atualizarSlider)
         self.videoWidgetEditor.select.connect(self.alternarPlayPause)
 
+    def carregarVideo(self):
+        caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
+        if caminho:
+            self.caminhoVideo = caminho
+            self.playerEditor.setSource(QUrl.fromLocalFile(caminho))
+            self.playerEditor.play()
+
+            # Corrigindo o máximo do slider com base na duração real do vídeo
+            video = VideoFileClip(caminho)
+            duracao = video.duration  # Em segundos (float)
+            self.sliderEditor.setMinimum(0)
+            self.sliderEditor.setMaximum(duracao)
+
     def reproduzirVideo(self, item):
-        indiceEditar = self.listaVideosRecortadosEdicao.row(item)
+        indiceEditar = self.caixaBotaoRecortes.lista.row(item)
         caminhoEditar = self.instanciaTelaCarregar.caminhosRecortes[indiceEditar]
         self.playerEditor.setSource(QUrl.fromLocalFile(caminhoEditar))
         self.playerEditor.play()

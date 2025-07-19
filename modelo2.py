@@ -2,13 +2,13 @@ import sys
 import os
 import datetime
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog, QListWidgetItem,
+    QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog, QListWidgetItem, QToolBar,
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget, QFrame
 )
 from PySide6.QtCore import QUrl, Qt, QTime, QTimer, Signal
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PySide6.QtGui import QMouseEvent, QPainter, QColor
+from PySide6.QtGui import QMouseEvent, QPainter, QColor, QAction
 from moviepy.editor import VideoFileClip
 
 
@@ -35,6 +35,11 @@ class TelaCarregarRecortar(QWidget):
         self.slider.setMinimum(0)
         self.slider.setMaximum(int(self.player.duration()))
 
+        self.volumeSlider = QSlider(Qt.Horizontal)
+        self.volumeSlider.setRange(0, 100)
+        self.volumeSlider.setValue(50)
+        self.audioOutput.setVolume(0.5)
+
         # Botões
         self.contagemClips = 1
         layoutBotoes = QHBoxLayout()
@@ -48,11 +53,12 @@ class TelaCarregarRecortar(QWidget):
             elif texto == "Editar":
                 botao.clicked.connect(self.trocarTelaEditar)
             
-        # Layout tempo
         self.temporizador = QLabel("00:00:00 / 00:00:00")
+
         layoutTempo = QHBoxLayout()
         layoutTempo.addWidget(self.temporizador)
-        layoutTempo.addWidget(self.slider)
+        layoutTempo.addWidget(self.slider, 6)
+        layoutTempo.addWidget(self.volumeSlider, 2)
 
         # Layout vídeo
         layoutVideo = QVBoxLayout()
@@ -81,6 +87,7 @@ class TelaCarregarRecortar(QWidget):
         self.listaVideosRecortados.itemDoubleClicked.connect(self.carregarRecortes)
         self.slider.sliderMoved.connect(self.player.setPosition)
         self.videoWidget.select.connect(self.alternarPlayPause)
+        self.volumeSlider.valueChanged.connect(self.ajusteVolume)
 
     def carregarVideo(self):
         caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
@@ -147,6 +154,9 @@ class TelaCarregarRecortar(QWidget):
         self.player.setSource(QUrl.fromLocalFile(caminho))
         self.player.play()
 
+    def ajusteVolume(self, valor):
+        self.audioOutput.setVolume(valor / 100)
+
 
 class TelaEditar(QWidget):
     def __init__(self, telaCarregada):
@@ -158,6 +168,13 @@ class TelaEditar(QWidget):
             os.mkdir(pastaRecorte)
 
         layoutPrincipalEditar = QHBoxLayout()
+
+        layoutColunaEdicao = QVBoxLayout()
+
+        menuVerticalEdicao = QToolBar('')
+        menuVerticalEdicao.setOrientation(Qt.Vertical)
+        menuVerticalEdicao.setMovable(False)
+        self.addToolBar(Qt.LeftToolBarArea, menuVerticalEdicao)
 
         layoutVideoEdicao = QVBoxLayout()
 
@@ -206,7 +223,8 @@ class TelaEditar(QWidget):
         layoutSelecaoVideos.addWidget(self.caixaBotaoEditados)
         layoutSelecaoVideos.addStretch()
 
-        layoutPrincipalEditar.addLayout(layoutVideoEdicao, 8)
+        layoutPrincipalEditar.addLayout(layoutColunaEdicao, 0.5)
+        layoutPrincipalEditar.addLayout(layoutVideoEdicao, 7.5)
         layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
 
         self.setLayout(layoutPrincipalEditar)

@@ -171,12 +171,22 @@ class TelaEditar(QWidget):
 
         layoutColunaEdicao = QVBoxLayout()
 
-        menuVerticalEdicao = QToolBar('')
-        menuVerticalEdicao.setOrientation(Qt.Vertical)
-        menuVerticalEdicao.setMovable(False)
-        self.addToolBar(Qt.LeftToolBarArea, menuVerticalEdicao)
+        self.ferramentaUtilizada = 'Video'
+        botoesEdicao = ['Video', 'Cor', 'Audio']
+        for botao in botoesEdicao:
+            botaoEdicao = QPushButton(botao)
+            layoutColunaEdicao.addWidget(botaoEdicao)
 
-        layoutVideoEdicao = QVBoxLayout()
+            if botao == 'Video':
+                botaoEdicao.clicked.connect(self.ferramentaVideo)
+            elif botao == 'Cor':
+                botaoEdicao.clicked.connect(self.ferramentaCor)
+            elif botao == 'Audio':
+                botaoEdicao.clicked.connect(self.ferramentaAudio)
+
+        layoutColunaEdicao.addStretch()
+
+        self.layoutVideoEdicao = QVBoxLayout()
 
         self.playerEditor = QMediaPlayer(self)
         self.audioEditor = QAudioOutput()
@@ -196,19 +206,38 @@ class TelaEditar(QWidget):
         self.sliderEditor.setMaximum(int(self.playerEditor.duration()))
 
         self.temporizadorEditor = QLabel("00:00:00 / 00:00:00")
-        layoutTempoEditor = QHBoxLayout()
-        layoutTempoEditor.addWidget(self.temporizadorEditor)
-        layoutTempoEditor.addWidget(self.sliderEditor)
+        self.layoutTempoEditor = QHBoxLayout()
+        self.layoutTempoEditor.addWidget(self.temporizadorEditor)
+        self.layoutTempoEditor.addWidget(self.sliderEditor)
 
-        layoutBotoes = QHBoxLayout()
-        botaoCarregar = QPushButton('Carregar')
-        botaoSalvar = QPushButton('Salvar')
-        layoutBotoes.addWidget(botaoCarregar)
-        layoutBotoes.addWidget(botaoSalvar)
+        self.layoutBotoesVideo = QHBoxLayout()
+        self.botaoCarregar = QPushButton('Carregar')
+        self.botaoSalvar = QPushButton('Salvar')
+        self.layoutBotoesVideo.addWidget(self.botaoCarregar)
+        self.layoutBotoesVideo.addWidget(self.botaoSalvar)
 
-        layoutVideoEdicao.addWidget(self.videoWidgetEditor)
-        layoutVideoEdicao.addLayout(layoutTempoEditor) # desaparece após escolher o vídeo
-        layoutVideoEdicao.addLayout(layoutBotoes)
+        self.layoutBotoesCor = QHBoxLayout()
+        botoesCor = ['Brilho', 'Tonalidade', 'Preto/Branco']
+        for botao in botoesCor:
+            botaoCor = QPushButton(botao)
+            self.layoutBotoesCor.addWidget(botaoCor)
+
+        self.layoutBotoesAudio = QVBoxLayout()
+        botoesAudio = ['Volume', 'Som de fundo']
+        for slider in botoesAudio:
+            sliderAudio = QSlider()
+            layoutConfigAudio = QHBoxLayout()
+            layoutConfigAudio.addWidget(QLabel(slider))
+            layoutConfigAudio.addWidget(sliderAudio)
+
+        self.layoutVideoEdicao.addWidget(self.videoWidgetEditor)
+        self.layoutVideoEdicao.addLayout(self.layoutTempoEditor) # desaparece após escolher o vídeo
+        if self.ferramentaUtilizada == 'Video':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesVideo)
+        elif self.ferramentaUtilizada == 'Cor':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesCor)
+        elif self.ferramentaUtilizada == 'Audio':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesAudio)
 
         opcoes_texto = [
             self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
@@ -224,12 +253,12 @@ class TelaEditar(QWidget):
         layoutSelecaoVideos.addStretch()
 
         layoutPrincipalEditar.addLayout(layoutColunaEdicao, 0.5)
-        layoutPrincipalEditar.addLayout(layoutVideoEdicao, 7.5)
+        layoutPrincipalEditar.addLayout(self.layoutVideoEdicao, 7.5)
         layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
 
         self.setLayout(layoutPrincipalEditar)
 
-        botaoCarregar.clicked.connect(self.carregarVideo)
+        self.botaoCarregar.clicked.connect(self.carregarVideo)
         self.caixaBotaoRecortes.lista.itemDoubleClicked.connect(self.reproduzirVideo)
         self.caixaBotaoEditados.lista.itemDoubleClicked.connect(self.reproduzirVideo) # incompleto
         self.playerEditor.positionChanged.connect(self.atualizarSlider)
@@ -268,6 +297,39 @@ class TelaEditar(QWidget):
             self.playerEditor.pause()
         else:
             self.playerEditor.play()
+    
+    def ferramentaVideo(self):
+        self.ferramentaUtilizada = 'Video'
+        self.atualizarFerramentaEdicao()
+    
+    def ferramentaCor(self):
+        self.ferramentaUtilizada = 'Cor'
+        self.atualizarFerramentaEdicao()
+    
+    def ferramentaAudio(self):
+        self.ferramentaUtilizada = 'Audio'
+        self.atualizarFerramentaEdicao()
+    
+    def atualizarFerramentaEdicao(self):
+        # Limpa widgets do layoutVideoEdicao
+        while self.layoutVideoEdicao.count():
+            item = self.layoutVideoEdicao.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+
+        # Reinsere o vídeo e tempo
+        self.layoutVideoEdicao.addWidget(self.videoWidgetEditor)
+        self.layoutVideoEdicao.addLayout(self.layoutTempoEditor)
+
+        # Insere os botões com base na ferramenta selecionada
+        if self.ferramentaUtilizada == 'Video':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesVideo)
+        elif self.ferramentaUtilizada == 'Cor':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesCor)
+        elif self.ferramentaUtilizada == 'Audio':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesAudio)
+
 
 
 class TelaSalvar(QWidget):

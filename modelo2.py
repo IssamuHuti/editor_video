@@ -223,12 +223,16 @@ class TelaEditar(QWidget):
             self.layoutBotoesCor.addWidget(botaoCor)
 
         self.layoutBotoesAudio = QVBoxLayout()
-        botoesAudio = ['Volume', 'Som de fundo']
+        botoesAudio = ['Volume video', 'Som de fundo']
         for slider in botoesAudio:
-            sliderAudio = QSlider()
+            sliderAudio = QSlider(Qt.Horizontal)
             layoutConfigAudio = QHBoxLayout()
-            layoutConfigAudio.addWidget(QLabel(slider))
-            layoutConfigAudio.addWidget(sliderAudio)
+            if slider == 'Som de fundo':
+                botaoSelecaoAudio = QPushButton('Carregar audio')
+                layoutConfigAudio.addWidget(botaoSelecaoAudio)
+            layoutConfigAudio.addWidget(QLabel(slider), 2)
+            layoutConfigAudio.addWidget(sliderAudio, 8)
+            self.layoutBotoesAudio.addLayout(layoutConfigAudio)
 
         self.layoutVideoEdicao.addWidget(self.videoWidgetEditor)
         self.layoutVideoEdicao.addLayout(self.layoutTempoEditor) # desaparece após escolher o vídeo

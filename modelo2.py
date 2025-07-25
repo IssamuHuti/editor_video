@@ -16,7 +16,7 @@ class TelaCarregarRecortar(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Recorte de Vídeo")
-        self.resize(800, 500)
+        # self.resize(800, 500)
 
         self.player = QMediaPlayer(self)
         self.audioOutput = QAudioOutput(self)

@@ -33,10 +33,242 @@ class TelaCarregarRecortar(QWidget):
         self.slider.setMinimum(0)
         self.slider.setMaximum(int(self.player.duration()))
 
+        self.volumeSlider = QSlider(Qt.Horizontal)
+        self.volumeSlider.setRange(0, 100)
+        self.volumeSlider.setValue(50)
+        self.audioOutput.setVolume(0.5)
+
+        self.contagemClips = 1
+        layoutBotoes = QHBoxLayout()
+        for texto in ["Carregar", "Recortar", "Editar", "Salvar"]:
+            botao = QPushButton(texto)
+            layoutBotoes.addWidget(botao)
+            if texto == "Carregar":
+                botao.clicked.connect(self.carregarVideo)
+            elif texto == "Recortar":
+                botao.clicked.connect(self.recortarVideo)
+            elif texto == "Editar":
+                botao.clicked.connect(self.trocarTelaEditar) # como trocar tela ?
+            elif texto == "Salvar":
+                botao.clicked.connect(self.trocarTelaSalvar) # como trocar tela ?
+            
+        self.temporizador = QLabel("00:00:00 / 00:00:00")
+
+        layoutTempo = QHBoxLayout()
+        layoutTempo.addWidget(self.temporizador)
+        layoutTempo.addWidget(self.slider, 6)
+        layoutTempo.addWidget(self.volumeSlider, 2)
+
+        layoutVideo = QVBoxLayout()
+        layoutVideo.addWidget(self.videoWidget)
+        layoutVideo.addLayout(layoutTempo)
+        layoutVideo.addLayout(layoutBotoes)
+
+        self.listaVideosRecortados = QListWidget()
+        self.caminhosRecortes = []
+
+        self.layoutRecortes = QVBoxLayout()
+        self.layoutRecortes.addWidget(QLabel("Vídeos recortados"))
+        self.layoutRecortes.addWidget(self.listaVideosRecortados)
+
+        layoutPrincipal = QHBoxLayout()
+        layoutPrincipal.addLayout(layoutVideo, 8)
+        layoutPrincipal.addLayout(self.layoutRecortes, 2)
+
+        mainLayout = QVBoxLayout()
+        mainLayout.addLayout(layoutPrincipal)
+        self.setLayout(mainLayout)
+
+        self.player.positionChanged.connect(self.atualizarSlider)
+        self.player.durationChanged.connect(lambda dur: self.slider.setMaximum(dur))
+        self.listaVideosRecortados.itemDoubleClicked.connect(self.carregarRecortes)
+        self.slider.sliderMoved.connect(self.player.setPosition)
+        self.videoWidget.select.connect(self.alternarPlayPause)
+        self.volumeSlider.valueChanged.connect(self.ajusteVolume)
+
+    def carregarVideo(self):
+        caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
+        if caminho:
+            self.caminhoVideo = caminho
+            self.player.setSource(QUrl.fromLocalFile(caminho))
+            self.player.play()
+
+            video = VideoFileClip(caminho)
+            duracao = video.duration
+            self.slider.setMinimum(0)
+            self.slider.setMaximum(duracao)
+
+    def recortarVideo(self):
+        trechosRecorte = self.slider.recortes
+        videoRecortar = VideoFileClip(self.caminhoVideo)
+
+        pastaRecortes = 'recortes'
+        if not os.path.exists(pastaRecortes):
+            os.mkdir(pastaRecortes)
+
+        for inicio, fim in trechosRecorte:
+            inicio = inicio / 1000
+            fim = fim / 1000
+
+            clipVideo = videoRecortar.subclip(inicio, fim)
+
+            nomeArquivoRecortado = f'videoRecortado{self.contagemClips}.mp4'
+            caminhoArquivoRecortado = os.path.join(pastaRecortes, nomeArquivoRecortado)
+
+            clipVideo.write_videofile(caminhoArquivoRecortado)
+
+            item = QListWidgetItem(nomeArquivoRecortado)
+            self.listaVideosRecortados.addItem(item)
+            self.caminhosRecortes.append(caminhoArquivoRecortado)
+            
+            self.contagemClips += 1
+
+    def trocarTelaEditar(self):
+        ...
+
+    def trocarTelaSalvar(self):
+        ...
+
+    def atualizarSlider(self, posicao):
+        duracao = self.player.duration()
+        self.slider.setMaximum(duracao)
+        self.slider.setValue(posicao)
+
+        tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
+        tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
+        self.temporizador.setText(f"{tempoAtual.toString('hh:mm:ss')} / {tempoTotal.toString('hh:mm:ss')}")
+
+    def alternarPlayPause(self):
+        if self.player.playbackState() == QMediaPlayer.PlayingState:
+            self.player.pause()
+        else:
+            self.player.play()
+
+    def carregarRecortes(self, item):
+        indice = self.listaVideosRecortados.row(item)
+        caminho = self.caminhosRecortes[indice]
+        self.player.setSource(QUrl.fromLocalFile(caminho))
+        self.player.play()
+
+    def ajusteVolume(self, valor):
+        self.audioOutput.setVolume(valor / 100)
+
 
 class TelaEditar(QWidget):
-    def __init__(self):
+    def __init__(self, telaCarregada):
         super().__init__()
+        self.instanciaTelaCarregar = telaCarregada
+
+        pastaRecorte = 'pastaRecorte'
+        if not os.path.exists(pastaRecorte):
+            os.mkdir(pastaRecorte)
+
+        layoutPrincipalEditar = QHBoxLayout()
+
+        layoutColunaEdicao = QVBoxLayout()
+
+        self.ferramentaUtilizada = 'Video'
+        botoesEdicao = ['Video', 'Cor', 'Audio']
+        for botao in botoesEdicao:
+            botaoEdicao = QPushButton(botao)
+            layoutColunaEdicao.addWidget(botaoEdicao)
+
+            if botao == 'Video':
+                botaoEdicao.clicked.connect(self.ferramentaVideo)
+            elif botao == 'Cor':
+                botaoEdicao.clicked.connect(self.ferramentaCor)
+            elif botao == 'Audio':
+                botaoEdicao.clicked.connect(self.ferramentaAudio)
+        
+        layoutColunaEdicao.addStretch()
+
+        self.layoutVideoEdicao = QVBoxLayout()
+
+        self.playerEditor = QMediaPlayer(self)
+        self.audioEditor = QAudioOutput()
+        self.playerEditor.setAudioOutput(self.audioEditor)
+
+        self.videoWidgetEditor = VideoWidgetInterativo(self)
+        self.playerEditor.setVideoOutput(self.videoWidgetEditor)
+
+        self.sliderEditor = ConfigSlider(Qt.Horizontal)
+        self.sliderEditor.setStyleSheet("""
+            QSlider::groove:horizontal { height: 8px; background: #ccc; }
+            QSlider::handle:horizontal { width: 16px; background: #444; border-radius: 8px; }
+            QSlider::sub-page:horizontal { background: #0080ff; }
+        """)
+        self.sliderEditor.setMouseTracking(True)
+        self.sliderEditor.setMinimum(0)
+        self.sliderEditor.setMaximum(int(self.playerEditor.duration()))
+
+        self.temporizadorEditor = QLabel("00:00:00 / 00:00:00")
+        self.layoutTempoEditor = QHBoxLayout()
+        self.layoutTempoEditor.addWidget(self.temporizadorEditor)
+        self.layoutTempoEditor.addWidget(self.sliderEditor)
+
+        self.layoutBotoesVideo = QHBoxLayout()
+        self.botaoCarregar = QPushButton('Carregar')
+        self.botaoSalvar = QPushButton('Salvar')
+        self.layoutBotoesVideo.addWidget(self.botaoCarregar)
+        self.layoutBotoesVideo.addWidget(self.botaoSalvar)
+
+        self.layoutBotoesCor = QHBoxLayout()
+        botoesCor = ['Brilho', 'Tonalidade', 'Preto/Branco']
+        for botao in botoesCor:
+            botaoCor = QPushButton(botao)
+            self.layoutBotoesCor.addWidget(botaoCor)
+
+        self.layoutBotoesAudio = QVBoxLayout()
+        botoesAudio = ['Volume video', 'Som de fundo']
+        for slider in botoesAudio:
+            sliderAudio = QSlider(Qt.Horizontal)
+            layoutConfigAudio = QHBoxLayout()
+            if slider == 'Som de fundo':
+                botaoSelecaoAudio = QPushButton('Carregar audio')
+                layoutConfigAudio.addWidget(botaoSelecaoAudio)
+            layoutConfigAudio.addWidget(QLabel(slider), 2)
+            layoutConfigAudio.addWidget(sliderAudio, 8)
+            self.layoutBotoesAudio.addLayout(layoutConfigAudio)
+        
+        self.layoutVideoEdicao.addWidget(self.videoWidgetEditor)
+        self.layoutVideoEdicao.addLayout(self.layoutTempoEditor)
+        if self.ferramentaUtilizada == 'Video':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesVideo)
+        elif self.ferramentaUtilizada == 'Cor':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesCor)
+        elif self.ferramentaUtilizada == 'Audio':
+            self.layoutVideoEdicao.addLayout(self.layoutBotoesAudio)
+
+        opcoes_texto = [
+            self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
+                self.instanciaTelaCarregar.listaVideosRecortados.count()
+                )
+        ]
+
+        layoutSelecaoVideos = QVBoxLayout()
+        self.caixaBotaoRecortes = CaixaLista('Vídeos recortados', opcoes_texto)
+        self.caixaBotaoEditados = CaixaLista('Vídeos editados', opcoes_texto)
+        layoutSelecaoVideos.addWidget(self.caixaBotaoRecortes)
+        layoutSelecaoVideos.addWidget(self.caixaBotaoEditados)
+        layoutSelecaoVideos.addStretch()
+
+        layoutPrincipalEditar.addLayout(layoutColunaEdicao, 0.5)
+        layoutPrincipalEditar.addLayout(self.layoutVideoEdicao, 7.5)
+        layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
+
+        self.setLayout(layoutPrincipalEditar)
+
+    def ferramentaVideo(self):
+        self.ferramentaUtilizada = 'Video'
+        self.atualizarFerramentaEdicao()
+    
+    def ferramentaCor(self):
+        self.ferramentaUtilizada = 'Cor'
+        self.atualizarFerramentaEdicao()
+    
+    def ferramentaAudio(self):
+        self.ferramentaUtilizada = 'Audio'
+        self.atualizarFerramentaEdicao()
 
 
 class TelaSalvar(QWidget):

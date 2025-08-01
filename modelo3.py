@@ -12,9 +12,10 @@ from PySide6.QtGui import QMouseEvent, QPainter, QColor, QAction
 from moviepy.editor import VideoFileClip
 
 
-class TelaCarregarRecortar(QWidget):
-    def __init__(self):
+class TelaRecortar(QWidget):
+    def __init__(self, stack):
         super().__init__()
+        self.stack = stack
 
         self.player = QMediaPlayer(self)
         self.audioOutput = QAudioOutput(self)
@@ -124,10 +125,10 @@ class TelaCarregarRecortar(QWidget):
             self.contagemClips += 1
 
     def trocarTelaEditar(self):
-        ...
+        self.stack.setCurrentIndex(1)
 
     def trocarTelaSalvar(self):
-        ...
+        self.stack.setCurrentIndex(2)
 
     def atualizarSlider(self, posicao):
         duracao = self.player.duration()
@@ -155,9 +156,10 @@ class TelaCarregarRecortar(QWidget):
 
 
 class TelaEditar(QWidget):
-    def __init__(self, telaCarregada):
+    def __init__(self, telaCarregada, stack):
         super().__init__()
         self.instanciaTelaCarregar = telaCarregada
+        self.stack = stack
 
         pastaRecorte = 'pastaRecorte'
         if not os.path.exists(pastaRecorte):
@@ -258,6 +260,8 @@ class TelaEditar(QWidget):
 
         self.setLayout(layoutPrincipalEditar)
 
+        self.botaoSalvar.clicked.connect(self.trocarTelaSalvar)
+
     def ferramentaVideo(self):
         self.ferramentaUtilizada = 'Video'
         self.atualizarFerramentaEdicao()
@@ -269,6 +273,9 @@ class TelaEditar(QWidget):
     def ferramentaAudio(self):
         self.ferramentaUtilizada = 'Audio'
         self.atualizarFerramentaEdicao()
+    
+    def trocarTelaSalvar(self):
+        self.stack.setCurrentIndex(2)
 
 
 class TelaSalvar(QWidget):
@@ -282,16 +289,17 @@ class TelaPrincipal(QMainWindow):
         self.setWindowTitle('Editor de Video')
         self.setFixedSize(1200,650)
 
-        self.carregar = TelaCarregarRecortar()
-        self.edicao = TelaEditar()
+        self.stack = QStackedWidget()
+
+        self.carregar = TelaRecortar(self.stack)
+        self.edicao = TelaEditar(self.carregar, self.stack)
         self.salvar = TelaSalvar()
 
-        self.stack = QStackedWidget()
         self.stack.addWidget(self.carregar)
         self.stack.addWidget(self.edicao)
         self.stack.addWidget(self.salvar)
 
-        botaoCarregar = QPushButton('CARREGAR')
+        botaoCarregar = QPushButton('RECORTAR')
         botaoEditar = QPushButton('EDITAR')
         botaoSalvar = QPushButton('SALVAR')
         botaoConfig = QPushButton('Configuração')

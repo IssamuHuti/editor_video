@@ -247,16 +247,16 @@ class TelaEditar(QWidget):
                 )
         ]
 
-        layoutSelecaoVideos = QVBoxLayout()
+        layoutSelecaoVideosEditar = QVBoxLayout()
         self.caixaBotaoRecortes = CaixaLista('Vídeos recortados', opcoes_texto)
         self.caixaBotaoEditados = CaixaLista('Vídeos editados', opcoes_texto)
-        layoutSelecaoVideos.addWidget(self.caixaBotaoRecortes)
-        layoutSelecaoVideos.addWidget(self.caixaBotaoEditados)
-        layoutSelecaoVideos.addStretch()
+        layoutSelecaoVideosEditar.addWidget(self.caixaBotaoRecortes)
+        layoutSelecaoVideosEditar.addWidget(self.caixaBotaoEditados)
+        layoutSelecaoVideosEditar.addStretch()
 
         layoutPrincipalEditar.addLayout(layoutColunaEdicao, 0.5)
         layoutPrincipalEditar.addLayout(self.layoutVideoEdicao, 7.5)
-        layoutPrincipalEditar.addLayout(layoutSelecaoVideos, 2)
+        layoutPrincipalEditar.addLayout(layoutSelecaoVideosEditar, 2)
 
         self.setLayout(layoutPrincipalEditar)
 
@@ -279,8 +279,55 @@ class TelaEditar(QWidget):
 
 
 class TelaSalvar(QWidget):
-    def __init__(self):
+    def __init__(self, telaCarregada):
+        self.instanciaTelaCarregar = telaCarregada
         super().__init__()
+
+        layoutPrincipalSalvar = QHBoxLayout()
+
+        self.layoutColunaSalvar = QVBoxLayout()
+
+        self.playerSalvar = QMediaPlayer(self)
+        self.audioSalvar = QAudioOutput()
+        self.playerSalvar.setAudioOutput(self.audioSalvar)
+
+        self.videoWidgetSalvar = VideoWidgetInterativo(self)
+        self.playerSalvar.setVideoOutput(self.videoWidgetSalvar)
+
+        self.sliderSalvar = ConfigSlider(Qt.Horizontal)
+        self.sliderSalvar.setStyleSheet("""
+            QSlider::groove:horizontal { height: 8px; background: #ccc; }
+            QSlider::handle:horizontal { width: 16px; background: #444; border-radius: 8px; }
+            QSlider::sub-page:horizontal { background: #0080ff; }
+        """)
+        self.sliderSalvar.setMouseTracking(True)
+        self.sliderSalvar.setMinimum(0)
+        self.sliderSalvar.setMaximum(int(self.playerSalvar.duration()))
+
+        self.temporizadorSalvar = QLabel("00:00:00 / 00:00:00")
+        self.layoutTempoSalvar = QHBoxLayout()
+        self.layoutTempoSalvar.addWidget(self.temporizadorSalvar)
+        self.layoutTempoSalvar.addWidget(self.sliderSalvar)
+
+        self.layoutColunaSalvar.addWidget(self.videoWidgetSalvar)
+        self.layoutColunaSalvar.addLayout(self.layoutTempoSalvar)
+
+        opcoes_texto = [
+            self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
+                self.instanciaTelaCarregar.listaVideosRecortados.count()
+                )
+        ]
+
+        layoutSelecaoVideosEditar = QVBoxLayout()
+        self.caixaBotaoRecortes = CaixaLista('Vídeos recortados', opcoes_texto)
+        self.caixaBotaoEditados = CaixaLista('Vídeos editados', opcoes_texto)
+        layoutSelecaoVideosEditar.addWidget(self.caixaBotaoRecortes)
+        layoutSelecaoVideosEditar.addWidget(self.caixaBotaoEditados)
+        layoutSelecaoVideosEditar.addStretch()
+
+        layoutPrincipalSalvar.addLayout(self.layoutColunaSalvar, 8)
+        layoutPrincipalSalvar.addLayout(layoutSelecaoVideosEditar, 2)
+
 
 
 class TelaPrincipal(QMainWindow):
@@ -293,7 +340,7 @@ class TelaPrincipal(QMainWindow):
 
         self.carregar = TelaRecortar(self.stack)
         self.edicao = TelaEditar(self.carregar, self.stack)
-        self.salvar = TelaSalvar()
+        self.salvar = TelaSalvar(self.carregar)
 
         self.stack.addWidget(self.carregar)
         self.stack.addWidget(self.edicao)

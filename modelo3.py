@@ -261,6 +261,7 @@ class TelaEditar(QWidget):
         self.setLayout(layoutPrincipalEditar)
 
         self.botaoSalvar.clicked.connect(self.trocarTelaSalvar)
+        self.botaoCarregar.clicked.connect(TelaRecortar.carregarVideo)
 
     def ferramentaVideo(self):
         self.ferramentaUtilizada = 'Video'
@@ -279,9 +280,10 @@ class TelaEditar(QWidget):
 
 
 class TelaSalvar(QWidget):
-    def __init__(self, telaCarregada):
-        self.instanciaTelaCarregar = telaCarregada
+    def __init__(self, telaCarregada, stack):
         super().__init__()
+        self.instanciaTelaCarregar = telaCarregada
+        self.stack = stack
 
         layoutPrincipalSalvar = QHBoxLayout()
 
@@ -309,8 +311,21 @@ class TelaSalvar(QWidget):
         self.layoutTempoSalvar.addWidget(self.temporizadorSalvar)
         self.layoutTempoSalvar.addWidget(self.sliderSalvar)
 
+        linhaBotoes = QHBoxLayout()
+        for botao in ['Recortar', 'Editar', 'Salvar']:
+            botaoPaginaSalvar = QPushButton(botao)
+            linhaBotoes.addWidget(botaoPaginaSalvar)
+
+            if botao == 'Recortar':
+                botaoPaginaSalvar.clicked.connect(self.trocarTelaRecortar)
+            elif botao == 'Editar':
+                botaoPaginaSalvar.clicked.connect(self.trocarTelaEditar)
+            else:
+                ...
+
         self.layoutColunaSalvar.addWidget(self.videoWidgetSalvar)
         self.layoutColunaSalvar.addLayout(self.layoutTempoSalvar)
+        self.layoutColunaSalvar.addLayout(linhaBotoes)
 
         opcoes_texto = [
             self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
@@ -327,7 +342,13 @@ class TelaSalvar(QWidget):
 
         layoutPrincipalSalvar.addLayout(self.layoutColunaSalvar, 8)
         layoutPrincipalSalvar.addLayout(layoutSelecaoVideosEditar, 2)
+        self.setLayout(layoutPrincipalSalvar)
 
+    def trocarTelaRecortar(self):
+        self.stack.setCurrentIndex(0)
+
+    def trocarTelaEditar(self):
+        self.stack.setCurrentIndex(1)
 
 
 class TelaPrincipal(QMainWindow):
@@ -340,7 +361,7 @@ class TelaPrincipal(QMainWindow):
 
         self.carregar = TelaRecortar(self.stack)
         self.edicao = TelaEditar(self.carregar, self.stack)
-        self.salvar = TelaSalvar(self.carregar)
+        self.salvar = TelaSalvar(self.carregar, self.stack)
 
         self.stack.addWidget(self.carregar)
         self.stack.addWidget(self.edicao)

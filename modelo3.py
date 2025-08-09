@@ -45,7 +45,7 @@ class TelaRecortar(QWidget):
             botao = QPushButton(texto)
             layoutBotoes.addWidget(botao)
             if texto == "Carregar":
-                botao.clicked.connect(self.carregarVideo)
+                botao.clicked.connect(self.carregarVideoRecortar)
             elif texto == "Recortar":
                 botao.clicked.connect(self.recortarVideo)
             elif texto == "Editar":
@@ -87,7 +87,7 @@ class TelaRecortar(QWidget):
         self.videoWidget.select.connect(self.alternarPlayPause)
         self.volumeSlider.valueChanged.connect(self.ajusteVolume)
 
-    def carregarVideo(self):
+    def carregarVideoRecortar(self):
         caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
         if caminho:
             self.caminhoVideo = caminho
@@ -125,6 +125,7 @@ class TelaRecortar(QWidget):
             self.contagemClips += 1
 
     def trocarTelaEditar(self):
+        self.stack.widget(1).atualizarListas()
         self.stack.setCurrentIndex(1)
 
     def trocarTelaSalvar(self):
@@ -156,10 +157,9 @@ class TelaRecortar(QWidget):
 
 
 class TelaEditar(QWidget):
-    def __init__(self, telaCarregada, stack):
+    def __init__(self, telaCarregada):
         super().__init__()
         self.instanciaTelaCarregar = telaCarregada
-        self.stack = stack
 
         pastaRecorte = 'pastaRecorte'
         if not os.path.exists(pastaRecorte):
@@ -208,38 +208,37 @@ class TelaEditar(QWidget):
         self.layoutTempoEditor.addWidget(self.temporizadorEditor)
         self.layoutTempoEditor.addWidget(self.sliderEditor)
 
-        self.layoutBotoesVideo = QHBoxLayout()
-        self.botaoCarregar = QPushButton('Carregar')
-        self.botaoSalvar = QPushButton('Salvar')
-        self.layoutBotoesVideo.addWidget(self.botaoCarregar)
-        self.layoutBotoesVideo.addWidget(self.botaoSalvar)
+        # self.layoutBotoesVideo = QHBoxLayout()
+        # self.botaoCarregar = QPushButton('Carregar')
+        # self.botaoSalvarEdicao = QPushButton('Salvar Edicao')
+        # self.layoutBotoesVideo.addWidget(self.botaoCarregar)
+        # self.layoutBotoesVideo.addWidget(self.botaoSalvarEdicao)
 
-        self.layoutBotoesCor = QHBoxLayout()
-        botoesCor = ['Brilho', 'Tonalidade', 'Preto/Branco']
-        for botao in botoesCor:
-            botaoCor = QPushButton(botao)
-            self.layoutBotoesCor.addWidget(botaoCor)
+        # self.layoutBotoesCor = QHBoxLayout()
+        # botoesCor = ['Brilho', 'Tonalidade', 'Preto/Branco']
+        # for botao in botoesCor:
+        #     botaoCor = QPushButton(botao)
+        #     self.layoutBotoesCor.addWidget(botaoCor)
 
-        self.layoutBotoesAudio = QVBoxLayout()
-        botoesAudio = ['Volume video', 'Som de fundo']
-        for slider in botoesAudio:
-            sliderAudio = QSlider(Qt.Horizontal)
-            layoutConfigAudio = QHBoxLayout()
-            if slider == 'Som de fundo':
-                botaoSelecaoAudio = QPushButton('Carregar audio')
-                layoutConfigAudio.addWidget(botaoSelecaoAudio)
-            layoutConfigAudio.addWidget(QLabel(slider), 2)
-            layoutConfigAudio.addWidget(sliderAudio, 8)
-            self.layoutBotoesAudio.addLayout(layoutConfigAudio)
+        # self.layoutBotoesAudio = QVBoxLayout()
+        # botoesAudio = ['Volume video', 'Som de fundo']
+        # for slider in botoesAudio:
+        #     sliderAudio = QSlider(Qt.Horizontal)
+        #     layoutConfigAudio = QHBoxLayout()
+        #     if slider == 'Som de fundo':
+        #         botaoSelecaoAudio = QPushButton('Carregar audio')
+        #         layoutConfigAudio.addWidget(botaoSelecaoAudio)
+        #     layoutConfigAudio.addWidget(QLabel(slider), 2)
+        #     layoutConfigAudio.addWidget(sliderAudio, 8)
+        #     self.layoutBotoesAudio.addLayout(layoutConfigAudio)
         
         self.layoutVideoEdicao.addWidget(self.videoWidgetEditor)
         self.layoutVideoEdicao.addLayout(self.layoutTempoEditor)
-        if self.ferramentaUtilizada == 'Video':
-            self.layoutVideoEdicao.addLayout(self.layoutBotoesVideo)
-        elif self.ferramentaUtilizada == 'Cor':
-            self.layoutVideoEdicao.addLayout(self.layoutBotoesCor)
-        elif self.ferramentaUtilizada == 'Audio':
-            self.layoutVideoEdicao.addLayout(self.layoutBotoesAudio)
+
+        self.layoutBotoesFerramenta = QVBoxLayout()
+        self.layoutVideoEdicao.addLayout(self.layoutBotoesFerramenta)
+
+        # self.layoutBotoesFerramenta.addLayout(self.layoutBotoesVideo)
 
         opcoes_texto = [
             self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
@@ -253,6 +252,9 @@ class TelaEditar(QWidget):
         layoutSelecaoVideosEditar.addWidget(self.caixaBotaoRecortes)
         layoutSelecaoVideosEditar.addWidget(self.caixaBotaoEditados)
         layoutSelecaoVideosEditar.addStretch()
+        
+        self.botaoSalvarEditar = QPushButton('Salvar')
+        layoutSelecaoVideosEditar.addWidget(self.botaoSalvarEditar)
 
         layoutPrincipalEditar.addLayout(layoutColunaEdicao, 0.5)
         layoutPrincipalEditar.addLayout(self.layoutVideoEdicao, 7.5)
@@ -260,8 +262,23 @@ class TelaEditar(QWidget):
 
         self.setLayout(layoutPrincipalEditar)
 
-        self.botaoSalvar.clicked.connect(self.trocarTelaSalvar)
-        self.botaoCarregar.clicked.connect(TelaRecortar.carregarVideo)
+        self.botaoSalvarEditar.clicked.connect(self.trocarTelaSalvar)
+        self.caixaBotaoRecortes.lista.itemDoubleClicked.connect(self.reproduzirVideo)
+        self.caixaBotaoEditados.lista.itemDoubleClicked.connect(self.reproduzirVideo) # incompleto
+        self.playerEditor.positionChanged.connect(self.atualizarSlider)
+        self.videoWidgetEditor.select.connect(self.alternarPlayPause)
+
+    def carregarVideoEditar(self):
+        caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
+        if caminho:
+            self.caminhoVideoEditor = caminho
+            self.playerEditor.setSource(QUrl.fromLocalFile(caminho))
+            self.playerEditor.play()
+
+            video = VideoFileClip(caminho)
+            duracao = video.duration
+            self.sliderEditor.setMinimum(0)
+            self.sliderEditor.setMaximum(duracao)
 
     def ferramentaVideo(self):
         self.ferramentaUtilizada = 'Video'
@@ -277,6 +294,85 @@ class TelaEditar(QWidget):
     
     def trocarTelaSalvar(self):
         self.stack.setCurrentIndex(2)
+
+    def alternarPlayPause(self):
+        if self.playerEditor.playbackState() == QMediaPlayer.PlayingState:
+            self.playerEditor.pause()
+        else:
+            self.playerEditor.play()
+
+    def reproduzirVideo(self, item):
+        indiceEditar = self.caixaBotaoRecortes.lista.row(item)
+        caminhoEditar = self.instanciaTelaCarregar.caminhosRecortes[indiceEditar]
+        self.playerEditor.setSource(QUrl.fromLocalFile(caminhoEditar))
+        self.playerEditor.play()
+
+    def atualizarSlider(self, posicao):
+        duracao = self.playerEditor.duration()
+        self.sliderEditor.setMaximum(duracao)
+        self.sliderEditor.setValue(posicao)
+
+        tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
+        tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
+        self.temporizadorEditor.setText(f"{tempoAtual.toString('hh:mm:ss')} / {tempoTotal.toString('hh:mm:ss')}")
+    
+    def atualizarListas(self):
+        # Limpa e recarrega as listas
+        self.caixaBotaoRecortes.lista.clear()
+        for i in range(self.instanciaTelaCarregar.listaVideosRecortados.count()):
+            self.caixaBotaoRecortes.lista.addItem(
+                self.instanciaTelaCarregar.listaVideosRecortados.item(i).text()
+            )
+
+    def atualizarFerramentaEdicao(self):
+        # Limpa widgets do layoutVideoEdicao
+        while self.layoutBotoesFerramenta.count():
+            item = self.layoutBotoesFerramenta.takeAt(0)
+
+            if item.widget():
+                item.widget().setParent(None)
+            elif item.layout():
+                self.limparLayout(item.layout())
+
+        # Insere os botões com base na ferramenta selecionada
+        if self.ferramentaUtilizada == 'Video':
+            layout = QHBoxLayout()
+            botaoCarregar = QPushButton('Carregar')
+            botaoSalvar = QPushButton('Salvar Edicao')
+            layout.addWidget(botaoCarregar)
+            layout.addWidget(botaoSalvar)
+            self.layoutBotoesFerramenta.addLayout(layout)
+
+            botaoCarregar.clicked.connect(self.carregarVideoEditar)
+
+        elif self.ferramentaUtilizada == 'Cor':
+            layout = QHBoxLayout()
+            for nome in ['Brilho', 'Tonalidade', 'Preto/Branco']:
+                layout.addWidget(QPushButton(nome))
+            self.layoutBotoesFerramenta.addLayout(layout)
+
+        elif self.ferramentaUtilizada == 'Audio':
+            layout = QVBoxLayout()
+            layoutAudio = QHBoxLayout()
+            botaoAudioCarregar = QPushButton('Carregar audio')
+            for nome in ['Volume video', 'Som de fundo']:
+                slider = QSlider(Qt.Horizontal)
+                linha = QHBoxLayout()
+                if nome == 'Som de fundo':
+                    linha.addWidget(QPushButton('Carregar audio')) # arrumar localização botao
+                linha.addWidget(QLabel(nome), 2)
+                linha.addWidget(slider, 8)
+                layout.addLayout(linha)
+            self.layoutBotoesFerramenta.addLayout(layout)
+    
+    def limparLayout(self, layout):
+        """Remove todos os widgets e sublayouts recursivamente."""
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+            elif item.layout():
+                self.limparLayout(item.layout())
 
 
 class TelaSalvar(QWidget):
@@ -360,7 +456,7 @@ class TelaPrincipal(QMainWindow):
         self.stack = QStackedWidget()
 
         self.carregar = TelaRecortar(self.stack)
-        self.edicao = TelaEditar(self.carregar, self.stack)
+        self.edicao = TelaEditar(self.carregar)
         self.salvar = TelaSalvar(self.carregar, self.stack)
 
         self.stack.addWidget(self.carregar)

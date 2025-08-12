@@ -157,9 +157,10 @@ class TelaRecortar(QWidget):
 
 
 class TelaEditar(QWidget):
-    def __init__(self, telaCarregada):
+    def __init__(self, telaCarregada, stack):
         super().__init__()
         self.instanciaTelaCarregar = telaCarregada
+        self.stack = stack
 
         pastaRecorte = 'pastaRecorte'
         if not os.path.exists(pastaRecorte):
@@ -170,7 +171,8 @@ class TelaEditar(QWidget):
         layoutColunaEdicao = QVBoxLayout()
 
         self.ferramentaUtilizada = 'Video'
-        botoesEdicao = ['Video', 'Cor', 'Audio']
+        botoesEdicao = ['Video', 'Cor', 'Audio', 'Edicoes Realizadas']
+        self.listaEdicaoRealiza = ['1', '2', '3']
         for botao in botoesEdicao:
             botaoEdicao = QPushButton(botao)
             layoutColunaEdicao.addWidget(botaoEdicao)
@@ -181,6 +183,8 @@ class TelaEditar(QWidget):
                 botaoEdicao.clicked.connect(self.ferramentaCor)
             elif botao == 'Audio':
                 botaoEdicao.clicked.connect(self.ferramentaAudio)
+            elif botao == 'Edicoes Realizadas':
+                botaoEdicao.clicked.connect(self.ferramentaEdicoesRealizadas)
         
         layoutColunaEdicao.addStretch()
 
@@ -207,38 +211,12 @@ class TelaEditar(QWidget):
         self.layoutTempoEditor = QHBoxLayout()
         self.layoutTempoEditor.addWidget(self.temporizadorEditor)
         self.layoutTempoEditor.addWidget(self.sliderEditor)
-
-        # self.layoutBotoesVideo = QHBoxLayout()
-        # self.botaoCarregar = QPushButton('Carregar')
-        # self.botaoSalvarEdicao = QPushButton('Salvar Edicao')
-        # self.layoutBotoesVideo.addWidget(self.botaoCarregar)
-        # self.layoutBotoesVideo.addWidget(self.botaoSalvarEdicao)
-
-        # self.layoutBotoesCor = QHBoxLayout()
-        # botoesCor = ['Brilho', 'Tonalidade', 'Preto/Branco']
-        # for botao in botoesCor:
-        #     botaoCor = QPushButton(botao)
-        #     self.layoutBotoesCor.addWidget(botaoCor)
-
-        # self.layoutBotoesAudio = QVBoxLayout()
-        # botoesAudio = ['Volume video', 'Som de fundo']
-        # for slider in botoesAudio:
-        #     sliderAudio = QSlider(Qt.Horizontal)
-        #     layoutConfigAudio = QHBoxLayout()
-        #     if slider == 'Som de fundo':
-        #         botaoSelecaoAudio = QPushButton('Carregar audio')
-        #         layoutConfigAudio.addWidget(botaoSelecaoAudio)
-        #     layoutConfigAudio.addWidget(QLabel(slider), 2)
-        #     layoutConfigAudio.addWidget(sliderAudio, 8)
-        #     self.layoutBotoesAudio.addLayout(layoutConfigAudio)
-        
+     
         self.layoutVideoEdicao.addWidget(self.videoWidgetEditor)
         self.layoutVideoEdicao.addLayout(self.layoutTempoEditor)
 
         self.layoutBotoesFerramenta = QVBoxLayout()
         self.layoutVideoEdicao.addLayout(self.layoutBotoesFerramenta)
-
-        # self.layoutBotoesFerramenta.addLayout(self.layoutBotoesVideo)
 
         opcoes_texto = [
             self.instanciaTelaCarregar.listaVideosRecortados.item(i).text() for i in range(
@@ -248,12 +226,16 @@ class TelaEditar(QWidget):
 
         layoutSelecaoVideosEditar = QVBoxLayout()
         self.caixaBotaoRecortes = CaixaLista('Vídeos recortados', opcoes_texto)
-        self.caixaBotaoEditados = CaixaLista('Vídeos editados', opcoes_texto)
+        self.caixaBotaoEditados = CaixaLista('Vídeos editados', [])
         layoutSelecaoVideosEditar.addWidget(self.caixaBotaoRecortes)
         layoutSelecaoVideosEditar.addWidget(self.caixaBotaoEditados)
         layoutSelecaoVideosEditar.addStretch()
         
+        self.botaoCarregar = QPushButton('Carregar')
+        self.botaoSalvar = QPushButton('Salvar Edicao')
         self.botaoSalvarEditar = QPushButton('Salvar')
+        layoutSelecaoVideosEditar.addWidget(self.botaoCarregar)
+        layoutSelecaoVideosEditar.addWidget(self.botaoSalvar)
         layoutSelecaoVideosEditar.addWidget(self.botaoSalvarEditar)
 
         layoutPrincipalEditar.addLayout(layoutColunaEdicao, 0.5)
@@ -262,7 +244,9 @@ class TelaEditar(QWidget):
 
         self.setLayout(layoutPrincipalEditar)
 
+        self.botaoCarregar.clicked.connect(self.carregarVideoEditar)
         self.botaoSalvarEditar.clicked.connect(self.trocarTelaSalvar)
+        self.botaoSalvar.clicked.connect(self.salvarVideoEditado)
         self.caixaBotaoRecortes.lista.itemDoubleClicked.connect(self.reproduzirVideo)
         self.caixaBotaoEditados.lista.itemDoubleClicked.connect(self.reproduzirVideo) # incompleto
         self.playerEditor.positionChanged.connect(self.atualizarSlider)
@@ -290,6 +274,10 @@ class TelaEditar(QWidget):
     
     def ferramentaAudio(self):
         self.ferramentaUtilizada = 'Audio'
+        self.atualizarFerramentaEdicao()
+    
+    def ferramentaEdicoesRealizadas(self):
+        self.ferramentaUtilizada = 'Edicoes Realizadas'
         self.atualizarFerramentaEdicao()
     
     def trocarTelaSalvar(self):
@@ -334,16 +322,23 @@ class TelaEditar(QWidget):
             elif item.layout():
                 self.limparLayout(item.layout())
 
-        # Insere os botões com base na ferramenta selecionada
         if self.ferramentaUtilizada == 'Video':
-            layout = QHBoxLayout()
-            botaoCarregar = QPushButton('Carregar')
-            botaoSalvar = QPushButton('Salvar Edicao')
-            layout.addWidget(botaoCarregar)
-            layout.addWidget(botaoSalvar)
-            self.layoutBotoesFerramenta.addLayout(layout)
+            layoutVideo = QHBoxLayout()
+            botaoGirar = QPushButton('Girar')
+            botaoEspelhar = QPushButton('Espelhar')
+            botaoVelocidade = QPushButton('Velocidade')
+            botaoMesclar = QPushButton('Mesclar')
+            
+            layoutVideo.addWidget(botaoGirar)
+            layoutVideo.addWidget(botaoEspelhar)
+            layoutVideo.addWidget(botaoVelocidade)
+            layoutVideo.addWidget(botaoMesclar)
+            self.layoutBotoesFerramenta.addLayout(layoutVideo)
 
-            botaoCarregar.clicked.connect(self.carregarVideoEditar)
+            botaoGirar.clicked.connect(self.girarVideo)
+            botaoEspelhar.clicked.connect(self.espelharVideo)
+            botaoVelocidade.clicked.connect(self.velocidadeVideo)
+            botaoMesclar.clicked.connect(self.mesclarVideo)
 
         elif self.ferramentaUtilizada == 'Cor':
             layout = QHBoxLayout()
@@ -353,18 +348,31 @@ class TelaEditar(QWidget):
 
         elif self.ferramentaUtilizada == 'Audio':
             layout = QVBoxLayout()
-            layoutAudio = QHBoxLayout()
-            botaoAudioCarregar = QPushButton('Carregar audio')
-            for nome in ['Volume video', 'Som de fundo']:
+            for nome in ['Volume video', 'Som do video', 'Carregar audio']:
                 slider = QSlider(Qt.Horizontal)
                 linha = QHBoxLayout()
-                if nome == 'Som de fundo':
-                    linha.addWidget(QPushButton('Carregar audio')) # arrumar localização botao
+                if nome == 'Carregar audio':
+                    linhaCarregar = QHBoxLayout()
+                    linhaCarregar.addWidget(QPushButton(nome), 2)
+                    linhaCarregar.addWidget(QLabel('Nome audio'), 2)
+                    linha.addWidget(QLabel(nome), 2)
+                    linha.addWidget(slider, 8)
+                    layout.addLayout(linhaCarregar)
+                    layout.addLayout(linha)
+                    continue
                 linha.addWidget(QLabel(nome), 2)
                 linha.addWidget(slider, 8)
                 layout.addLayout(linha)
             self.layoutBotoesFerramenta.addLayout(layout)
-    
+        
+        elif self.ferramentaUtilizada == 'Edicoes Realizadas':
+            latyoutListaEdicaoRealizada = QVBoxLayout()
+
+            latyoutListaEdicaoRealizada.addWidget(QLabel('Edições Realizadas'))
+            latyoutListaEdicaoRealizada.addWidget(self.listaEdicaoRealiza)
+
+            self.layoutBotoesFerramenta.addLayout(latyoutListaEdicaoRealizada)
+
     def limparLayout(self, layout):
         """Remove todos os widgets e sublayouts recursivamente."""
         while layout.count():
@@ -373,6 +381,21 @@ class TelaEditar(QWidget):
                 item.widget().setParent(None)
             elif item.layout():
                 self.limparLayout(item.layout())
+
+    def salvarVideoEditado(self):
+        ...
+
+    def girarVideo(self):
+        ...
+
+    def espelharVideo(self):
+        ...
+
+    def velocidadeVideo(self):
+        ...
+
+    def mesclarVideo(self):
+        ...
 
 
 class TelaSalvar(QWidget):
@@ -456,7 +479,7 @@ class TelaPrincipal(QMainWindow):
         self.stack = QStackedWidget()
 
         self.carregar = TelaRecortar(self.stack)
-        self.edicao = TelaEditar(self.carregar)
+        self.edicao = TelaEditar(self.carregar, self.stack)
         self.salvar = TelaSalvar(self.carregar, self.stack)
 
         self.stack.addWidget(self.carregar)

@@ -2,14 +2,15 @@ import sys
 import os
 import datetime
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog, QListWidgetItem, QToolBar,
-    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget, QFrame
+    QApplication, QMainWindow, QWidget, QPushButton, QComboBox, QFileDialog, QListWidgetItem, QToolBar, QLineEdit,
+    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QMessageBox, QSlider, QListWidget, QFrame, QSizePolicy, QSpinBox
 )
 from PySide6.QtCore import QUrl, Qt, QTime, QTimer, Signal
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PySide6.QtGui import QMouseEvent, QPainter, QColor, QAction
-from moviepy.editor import VideoFileClip
+from PySide6.QtGui import QMouseEvent, QPainter, QColor, QAction, QIcon
+from moviepy.editor import VideoFileClip, vfx, TextClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
+import moviepy.config as mpyconf
 
 
 class TelaRecortar(QWidget):
@@ -172,7 +173,9 @@ class TelaEditar(QWidget):
 
         self.ferramentaUtilizada = 'Video'
         botoesEdicao = ['Video', 'Cor', 'Audio', 'Edicoes Realizadas']
-        self.listaEdicaoRealiza = ['1', '2', '3']
+        self.listaEdicaoRealiza = QListWidget()
+        self.edicoesAplicadas = []  # lista de (func, nome, params)
+
         for botao in botoesEdicao:
             botaoEdicao = QPushButton(botao)
             layoutColunaEdicao.addWidget(botaoEdicao)
@@ -251,18 +254,34 @@ class TelaEditar(QWidget):
         self.caixaBotaoEditados.lista.itemDoubleClicked.connect(self.reproduzirVideo) # incompleto
         self.playerEditor.positionChanged.connect(self.atualizarSlider)
         self.videoWidgetEditor.select.connect(self.alternarPlayPause)
+        self.listaEdicaoRealiza.itemDoubleClicked.connect(self.removerEdicaoUI)
 
+        self.caminhoVideoEditor = None
+        self.temp_preview_path = os.path.join('pastaRecorte', 'temp_preview.mp4')
+        self.videoOriginal = None
+        self.videoEditado = None
+
+# Funcionalidades layout
     def carregarVideoEditar(self):
         caminho, _ = QFileDialog.getOpenFileName(self, "Abrir vídeo", "", "Vídeo (*.mp4 *.avi *.mkv *.mov)")
-        if caminho:
-            self.caminhoVideoEditor = caminho
-            self.playerEditor.setSource(QUrl.fromLocalFile(caminho))
-            self.playerEditor.play()
+        if not caminho:
+            return
 
-            video = VideoFileClip(caminho)
-            duracao = video.duration
-            self.sliderEditor.setMinimum(0)
-            self.sliderEditor.setMaximum(duracao)
+        # Guarda caminho do original (evita manter VideoFileClip aberto)
+        self.caminhoVideoEditor = caminho
+        self.edicoesAplicadas.clear()
+        self.listaEdicaoRealiza.clear()
+
+        # Duração em ms para o QSlider (Qt usa milissegundos)
+        with VideoFileClip(caminho) as video:
+            duracao_ms = int(video.duration * 1000)
+
+        # Player Qt
+        self.playerEditor.setSource(QUrl.fromLocalFile(caminho))
+        self.playerEditor.play()
+
+        self.sliderEditor.setMinimum(0)
+        self.sliderEditor.setMaximum(duracao_ms)
 
     def ferramentaVideo(self):
         self.ferramentaUtilizada = 'Video'
@@ -323,19 +342,46 @@ class TelaEditar(QWidget):
                 self.limparLayout(item.layout())
 
         if self.ferramentaUtilizada == 'Video':
-            layoutVideo = QHBoxLayout()
-            botaoGirar = QPushButton('Girar')
+            layoutVideo = QVBoxLayout()
+
+            # Linha de giro com caixa numérica + botões
+            layoutGirar = QHBoxLayout()
+            self.spinGraus = QSpinBox()
+            self.spinGraus.setRange(0, 359)
+            self.spinGraus.setValue(0)
+            self.spinGraus.setSuffix("°")
+            self.spinGraus.setFixedWidth(70)
+
+            btnGirarEsquerda = QPushButton()
+            btnGirarEsquerda.setIcon(QIcon.fromTheme("object-rotate-left"))
+            btnGirarDireita = QPushButton()
+            btnGirarDireita.setIcon(QIcon.fromTheme("object-rotate-right"))
+
+            btnAplicarGiro = QPushButton("Aplicar Giro")
+
+            layoutGirar.addWidget(QLabel("Ângulo:"))
+            layoutGirar.addWidget(self.spinGraus)
+            layoutGirar.addWidget(btnGirarEsquerda)
+            layoutGirar.addWidget(btnGirarDireita)
+            layoutGirar.addWidget(btnAplicarGiro)
+
+            layoutOutros = QHBoxLayout()
             botaoEspelhar = QPushButton('Espelhar')
             botaoVelocidade = QPushButton('Velocidade')
             botaoMesclar = QPushButton('Mesclar')
             
-            layoutVideo.addWidget(botaoGirar)
-            layoutVideo.addWidget(botaoEspelhar)
-            layoutVideo.addWidget(botaoVelocidade)
-            layoutVideo.addWidget(botaoMesclar)
+            layoutOutros.addWidget(botaoEspelhar)
+            layoutOutros.addWidget(botaoVelocidade)
+            layoutOutros.addWidget(botaoMesclar)
+
+            layoutVideo.addLayout(layoutGirar)
+            layoutVideo.addLayout(layoutOutros)
+
             self.layoutBotoesFerramenta.addLayout(layoutVideo)
 
-            botaoGirar.clicked.connect(self.girarVideo)
+            btnAplicarGiro.clicked.connect(lambda: self.girarVideo(self.spinGraus.value()))
+            btnGirarEsquerda.clicked.connect(lambda: self.girarVideo(self.spinGraus.value() - 45))
+            btnGirarDireita.clicked.connect(lambda: self.girarVideo(self.spinGraus.value() + 45))
             botaoEspelhar.clicked.connect(self.espelharVideo)
             botaoVelocidade.clicked.connect(self.velocidadeVideo)
             botaoMesclar.clicked.connect(self.mesclarVideo)
@@ -348,33 +394,56 @@ class TelaEditar(QWidget):
 
         elif self.ferramentaUtilizada == 'Audio':
             layout = QVBoxLayout()
-            for nome in ['Volume video', 'Som do video', 'Carregar audio']:
-                slider = QSlider(Qt.Horizontal)
-                linha = QHBoxLayout()
-                if nome == 'Carregar audio':
-                    linhaCarregar = QHBoxLayout()
-                    linhaCarregar.addWidget(QPushButton(nome), 2)
-                    linhaCarregar.addWidget(QLabel('Nome audio'), 2)
-                    linha.addWidget(QLabel(nome), 2)
-                    linha.addWidget(slider, 8)
-                    layout.addLayout(linhaCarregar)
-                    layout.addLayout(linha)
-                    continue
-                linha.addWidget(QLabel(nome), 2)
-                linha.addWidget(slider, 8)
-                layout.addLayout(linha)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(8)
+
+            # Linha: Volume video
+            linha_vol = QHBoxLayout()
+            linha_vol.setContentsMargins(0, 0, 0, 0)
+            linha_vol.setSpacing(8)
+            linha_vol.addWidget(QLabel('Volume vídeo'), 2)
+            slider_vol = QSlider(Qt.Horizontal)
+            slider_vol.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            linha_vol.addWidget(slider_vol, 8)
+            layout.addLayout(linha_vol)
+
+            # Linha: Som do video
+            linha_som = QHBoxLayout()
+            linha_som.setContentsMargins(0, 0, 0, 0)
+            linha_som.setSpacing(8)
+            linha_som.addWidget(QLabel('Som do vídeo'), 2)
+            slider_som = QSlider(Qt.Horizontal)
+            slider_som.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            linha_som.addWidget(slider_som, 8)
+            layout.addLayout(linha_som)
+
+            # Linha: Carregar audio (sem criar linha extra acidental)
+            linha_carregar = QHBoxLayout()
+            linha_carregar.setContentsMargins(0, 0, 0, 0)
+            linha_carregar.setSpacing(8)
+            btn_carregar = QPushButton('Carregar áudio')
+            btn_carregar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            campo_nome = QLineEdit()
+            campo_nome.setPlaceholderText('Nome do áudio / caminho')
+            linha_carregar.addWidget(btn_carregar)
+            linha_carregar.addWidget(campo_nome, 1)
+            layout.addLayout(linha_carregar)
+
             self.layoutBotoesFerramenta.addLayout(layout)
         
         elif self.ferramentaUtilizada == 'Edicoes Realizadas':
             latyoutListaEdicaoRealizada = QVBoxLayout()
-
-            latyoutListaEdicaoRealizada.addWidget(QLabel('Edições Realizadas'))
+            titulo = QLabel('Edições Realizadas')
+            titulo.setStyleSheet("font-weight: 600;")
+            latyoutListaEdicaoRealizada.addWidget(titulo)
             latyoutListaEdicaoRealizada.addWidget(self.listaEdicaoRealiza)
+            latyoutListaEdicaoRealizada.setContentsMargins(0, 0, 0, 0)
+            latyoutListaEdicaoRealizada.setSpacing(8)
 
             self.layoutBotoesFerramenta.addLayout(latyoutListaEdicaoRealizada)
 
     def limparLayout(self, layout):
-        """Remove todos os widgets e sublayouts recursivamente."""
+        # Remove todos os widgets e sublayouts recursivamente.
         while layout.count():
             item = layout.takeAt(0)
             if item.widget():
@@ -382,20 +451,129 @@ class TelaEditar(QWidget):
             elif item.layout():
                 self.limparLayout(item.layout())
 
+# Aplicação/Remoção edição
+    def aplicarEdicao(self, func, nome, **kwargs):
+        """Empilha a edição (func) e reprocesa a partir do original."""
+        if not self.caminhoVideoEditor:
+            # Evita erro se usuário clicar antes de carregar vídeo
+            return
+
+        self.edicoesAplicadas.append((func, nome, kwargs))
+        # Mostra no QListWidget
+        rotulo = nome if not kwargs else f"{nome} {kwargs}"
+        self.listaEdicaoRealiza.addItem(rotulo)
+        self.reprocessarVideo()
+    
+    def reprocessarVideo(self):
+        """Recria o preview do zero aplicando as edições na ordem."""
+        if not self.caminhoVideoEditor:
+            return
+
+        # Abre clip do original a cada reprocessamento (evita locks e side-effects)
+        clip = VideoFileClip(self.caminhoVideoEditor)
+        try:
+            for func, _, params in self.edicoesAplicadas:
+                clip = func(clip, **params)
+
+            # Exporta preview
+            temp_path = self.temp_preview_path
+            # Fecha player antes de reabrir a mesma URL no Windows (evita lock)
+            # (opcional) self.playerEditor.stop()
+
+            clip.write_videofile(
+                temp_path,
+                codec="libx264",
+                audio_codec="aac",
+                verbose=False,
+                logger=None
+            )
+
+            # Recarrega preview no player
+            self.playerEditor.setSource(QUrl.fromLocalFile(temp_path))
+            self.playerEditor.play()
+
+        finally:
+            # Fecha o último objeto (importante no Windows)
+            try:
+                clip.close()
+            except Exception:
+                pass
+
+    def removerEdicao(self, indice):
+        # Remove edição da lista e reprocessa vídeo.
+        if 0 <= indice < len(self.edicoesAplicadas):
+            self.edicoesAplicadas.pop(indice)
+            self.listaEdicaoRealiza.takeItem(indice)
+            self.reprocessarVideo()
+
+    def registrarEdicao(self, nome, **kwargs):
+        # Adiciona ao QListWidget
+        self.listaEdicaoRealiza.addItem(f"{nome} - {kwargs}")
+        
+        # (Opcional) Se quiser manter um histórico em lista Python também:
+        if not hasattr(self, "historicoEdicoes"):
+            self.historicoEdicoes = []
+        self.historicoEdicoes.append((nome, kwargs))
+
+        # Chama aplicação dos efeitos
+        self.aplicarEdicoes()
+
+    def aplicarEdicoes(self):
+        # Aqui você aplica os efeitos no vídeo com base nas edições registradas.
+        if hasattr(self, "historicoEdicoes"):
+            for nome, params in self.historicoEdicoes:
+                print(f"Aplicando efeito {nome} com parâmetros {params}")
+                # Aqui entraria a lógica real de aplicar o efeito no vídeo
+
+    def limparEdicoes(self):
+        # Remove todas as edições
+        self.listaEdicaoRealiza.clear()
+        if hasattr(self, "historicoEdicoes"):
+            self.historicoEdicoes.clear()
+        self.aplicarEdicoes()
+    
+    def removerEdicaoUI(self, item):
+        indice = self.listaEdicaoRealiza.row(item)
+        self.removerEdicao(indice)
+
     def salvarVideoEditado(self):
-        ...
+        pastaEditados = "pastaEditados"
+        if not os.path.exists(pastaEditados):
+            os.mkdir(pastaEditados)
 
-    def girarVideo(self):
-        ...
+        nome_arquivo = os.path.splitext(os.path.basename(self.caminhoVideoEditor))[0] + "_editado.mp4"
+        caminho_saida = os.path.join(pastaEditados, nome_arquivo)
 
-    def espelharVideo(self):
-        ...
+        self.videoEditado.write_videofile(caminho_saida, codec="libx264", audio_codec="aac", verbose=False, logger=None)
 
-    def velocidadeVideo(self):
-        ...
+        self.caixaBotaoEditados.lista.addItem(nome_arquivo)
+        if not hasattr(self, "caminhosEditados"):
+            self.caminhosEditados = []
+        self.caminhosEditados.append(caminho_saida)
+
+        print(f"Vídeo salvo em: {caminho_saida}")
+
+# EFEITOS
+    def girarVideo(self, graus):
+        if graus < 0:
+            graus += 360
+        elif graus >= 360:
+            graus -= 360
+
+        self.spinGraus.setValue(graus)
+        self.aplicarEdicao(lambda clip, g=graus: clip.rotate(g), f"Girar {graus}°")
+
+    def espelharVideo(self, clip=None):
+        self.aplicarEdicao(lambda clip: clip.fx(vfx.mirror_x), "Espelhar")
+
+    def velocidadeVideo(self, clip=None, factor=1.5):
+        # Ex.: fator fixo; se quiser, peça via QInputDialog.getDouble(...)
+        fator = 1.5
+        self.aplicarEdicao(lambda clip, f: clip.fx(vfx.speedx, f), f"Velocidade {fator}x", f=fator)
 
     def mesclarVideo(self):
         ...
+
 
 
 class TelaSalvar(QWidget):

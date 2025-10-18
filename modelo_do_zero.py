@@ -70,8 +70,14 @@ class TelaPrincipal(QMainWindow):
         self.slider.setMouseTracking(True)
         self.slider.setMinimum(0)
         self.slider.setMaximum(int(self.player.duration()))
+        self.tempoAtual = ''
+        self.tempoTotal = ''
+        self.tempoTotal = ''
 
         self.temporizador = QLabel("00:00:00 / 00:00:00")
+
+        self.avancar = QPushButton('+5')
+        self.voltar  = QPushButton('-5')
 
         self.volumeSlider = QSlider(Qt.Horizontal)
         self.volumeSlider.setRange(0, 100)
@@ -80,8 +86,10 @@ class TelaPrincipal(QMainWindow):
 
         layoutSlider = QHBoxLayout()
         layoutSlider.addWidget(self.temporizador)
+        layoutSlider.addWidget(self.voltar)
+        layoutSlider.addWidget(self.avancar)
         layoutSlider.addWidget(self.slider, 6)
-        layoutSlider.addWidget(self.volumeSlider, 2)
+        layoutSlider.addWidget(self.volumeSlider, 1)
 
         layoutReprodutor = QVBoxLayout()
         layoutReprodutor.addWidget(self.videoWidget)
@@ -122,6 +130,8 @@ class TelaPrincipal(QMainWindow):
         self.player.positionChanged.connect(self.atualizarSlider) # atualiza o slider conforme video roda
         self.slider.sliderMoved.connect(self.player.setPosition)  # mover o slider permite alterar o momento do video
         self.videoWidget.select.connect(self.alternarPlayPause)   # pausa e continua o video
+        self.avancar.clicked.connect(self.avancarSlider)
+        self.voltar.clicked.connect(self.voltarSlider)
 
     def abrirVideo(self):
         arquivo, _ = QFileDialog.getOpenFileName( # serve para selecionar arquivos de vídeo
@@ -139,9 +149,22 @@ class TelaPrincipal(QMainWindow):
         self.slider.setMaximum(duracao)
         self.slider.setValue(posicao)
 
-        tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
-        tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
-        self.temporizador.setText(f"{tempoAtual.toString('hh:mm:ss')} / {tempoTotal.toString('hh:mm:ss')}")
+        self.tempoAtual = QTime(0, 0, 0).addMSecs(posicao)
+        self.tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
+        self.tempoTotal = QTime(0, 0, 0).addMSecs(duracao)
+
+        self.temporizador.setText(f"{self.tempoAtual.toString('hh:mm:ss')} / {self.tempoTotal.toString('hh:mm:ss')}")
+        self.temporizador.setText(f"{self.tempoAtual.toString('hh:mm:ss')} / {self.tempoTotal.toString('hh:mm:ss')}")
+        
+    def avancarSlider(self):
+        novaPosicao = self.player.position() + 5000
+        self.player.setPosition(novaPosicao)
+        self.slider.setValue(novaPosicao)
+
+    def voltarSlider(self):
+        novaPosicao = self.player.position() - 5000
+        self.player.setPosition(novaPosicao)
+        self.slider.setValue(novaPosicao)
 
     def alternarPlayPause(self):
         if self.player.playbackState() == QMediaPlayer.PlayingState:
@@ -154,8 +177,36 @@ class Recortar(QWidget):
     def __init__(self):
         super().__init__()
         layoutRecortar = QVBoxLayout(self)
-        layoutRecortar.addWidget(QLabel('Recorte'))
-        layoutRecortar.addWidget(QPushButton('Aplicar'))
+        layoutRecortar.addWidget(TelaPrincipal.temporizador) # problemas com importacao
+        layoutRecortar.addWidget(TelaPrincipal.slider)
+        self.duracao = TelaPrincipal.tempoTotal
+        self.momento = TelaPrincipal.tempoAtual
+
+        layoutCorpoRecortar = QHBoxLayout(self)
+
+        layoutTrechosRecortar = QVBoxLayout
+        layoutInicioRecorte = QHBoxLayout()
+        layoutInicioRecorte.addWidget(QLabel('Inicio:'))
+        botaoInicioRecorte = QPushButton('Selecionar')
+        layoutInicioRecorte.addWidget(botaoInicioRecorte)
+
+        layoutFinalRecorte  = QHBoxLayout()
+        layoutFinalRecorte.addWidget(QLabel('Final:'))
+        botaoFinalRecorte = QPushButton('Selecionar')
+        layoutFinalRecorte.addWidget(botaoFinalRecorte)
+
+        comecoRecorte = ''
+        finalRecorte  = ''
+
+        layoutTrechosRecortar.addLayout(layoutInicioRecorte)
+        layoutTrechosRecortar.addLayout(layoutFinalRecorte)
+        layoutTrechosRecortar.addWidget(QLabel('Recorte'))
+        layoutTrechosRecortar.addWidget(QPushButton('Recorte'))
+
+        listaRecortes = QListWidget()
+
+        layoutCorpoRecortar.addWidget(QPushButton('Aplicar'))
+        layoutCorpoRecortar.addWidget(listaRecortes)
 
 
 class Audio(QWidget):
